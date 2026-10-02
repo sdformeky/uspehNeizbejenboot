@@ -1,0 +1,8 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: support-service
+  config:
+    import: optional:configserver:http://localhost:8888
