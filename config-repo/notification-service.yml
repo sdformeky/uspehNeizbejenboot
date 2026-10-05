@@ -1,0 +1,5 @@
+# Настройки только для notification-service, общие — в application.yml
+info:
+  app:
+    name: notification-service
+    description: Уведомления пользователям

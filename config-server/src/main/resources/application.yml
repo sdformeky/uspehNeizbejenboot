@@ -10,7 +10,8 @@ spring:
     config:
       server:
         native:
-          search-locations: classpath:/config
+          # папка config-repo в корне проекта; ../ — если запускать из папки модуля
+          search-locations: file:./config-repo/,file:../config-repo/
 
 management:
   endpoints:

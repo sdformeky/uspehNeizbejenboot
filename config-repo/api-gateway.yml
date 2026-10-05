@@ -1,0 +1,5 @@
+# Настройки только для api-gateway, общие — в application.yml
+info:
+  app:
+    name: api-gateway
+    description: Единая точка входа для клиентов

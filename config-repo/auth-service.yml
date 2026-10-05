@@ -1,0 +1,5 @@
+# Настройки только для auth-service, общие — в application.yml
+info:
+  app:
+    name: auth-service
+    description: Пользователи, роли и вход

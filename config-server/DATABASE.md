@@ -56,7 +56,7 @@ Run → Edit Configurations → нужный сервис → Environment variab
 ## Где лежат настройки
 
 Подключение описано один раз в общем конфиге
-[`src/main/resources/config/application.yml`](src/main/resources/config/application.yml),
+[`config-repo/application.yml`](../config-repo/application.yml),
 config-server раздаёт его всем сервисам:
 
 ```yaml

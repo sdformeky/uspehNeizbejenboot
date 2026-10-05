@@ -1,0 +1,5 @@
+# Настройки только для support-service, общие — в application.yml
+info:
+  app:
+    name: support-service
+    description: Техподдержка

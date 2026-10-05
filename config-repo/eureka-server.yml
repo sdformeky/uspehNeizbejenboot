@@ -1,0 +1,5 @@
+# Настройки только для eureka-server, общие — в application.yml
+info:
+  app:
+    name: eureka-server
+    description: Реестр сервисов
