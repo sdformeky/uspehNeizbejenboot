@@ -11,19 +11,8 @@ spring:
       server:
         webflux:
           routes:
+            # lb:// — адрес сервиса берётся из Eureka по имени
             - id: student-service
               uri: lb://student-service
               predicates:
                 - Path=/students/**
-            - id: course-service
-              uri: lb://course-service
-              predicates:
-                - Path=/courses/**
-            - id: enrollment-service
-              uri: lb://enrollment-service
-              predicates:
-                - Path=/enrollments/**
-            - id: certificate-service
-              uri: lb://certificate-service
-              predicates:
-                - Path=/certificates/**
