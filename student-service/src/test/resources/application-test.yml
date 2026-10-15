@@ -1,0 +1,8 @@
+# Профиль для тестов: без config-server и Eureka, тестам не нужна запущенная инфраструктура
+spring:
+  cloud:
+    config:
+      enabled: false
+eureka:
+  client:
+    enabled: false
