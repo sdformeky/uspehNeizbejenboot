@@ -7,6 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,6 +39,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleUnreadable(HttpMessageNotReadableException e) {
         return problem(HttpStatus.BAD_REQUEST, "Некорректный запрос", "Тело запроса не удалось прочитать");
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return problem(HttpStatus.BAD_REQUEST, "Некорректный запрос",
+                "Параметр '" + e.getName() + "' имеет неверный формат: " + e.getValue());
     }
 
     private ProblemDetail problem(HttpStatus status, String title, String detail) {
