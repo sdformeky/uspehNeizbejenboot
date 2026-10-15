@@ -8,4 +8,6 @@ import java.util.List;
 public interface WebinarRepository extends JpaRepository<Webinar, Long> {
 
     List<Webinar> findByCourseIdOrderByStartsAtAsc(Long courseId);
+
+    boolean existsByCourseId(Long courseId);
 }

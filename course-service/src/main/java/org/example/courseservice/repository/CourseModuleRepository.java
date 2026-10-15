@@ -8,4 +8,6 @@ import java.util.List;
 public interface CourseModuleRepository extends JpaRepository<CourseModule, Long> {
 
     List<CourseModule> findByCourseIdOrderByPositionAsc(Long courseId);
+
+    boolean existsByCourseId(Long courseId);
 }
