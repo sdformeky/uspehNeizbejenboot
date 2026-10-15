@@ -1,0 +1,39 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: enrollment-service
+  config:
+    import: "optional:configserver:http://localhost:8888"
+  datasource:
+    url: jdbc:postgresql://localhost:5432/uspeh_db
+    username: student_app
+    password: IuFTwzVlmPoyrYiqHCs8
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+feign:
+  circuitbreaker:
+    enabled: true # Активируем интеграцию Feign и Circuit Breaker
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED     # Окно на основе количества вызовов
+        slidingWindowSize: 10              # Проверяем последние 10 запросов
+        failureRateThreshold: 50.0         # Размыкаем цепь, если 50% и более запросов упали
+        minimumNumberOfCalls: 5            # Начинаем считать процент ошибок только после 5 вызовов
+        waitDurationInOpenState: 15000ms   # Время (15 сек), которое CB проводит в состоянии OPEN перед переходом в HALF_OPEN
+        permittedNumberOfCallsInHalfOpenState: 3 # Сколько пробных запросов пропустить в HALF_OPEN
+        automaticTransitionFromOpenToHalfOpenEnabled: true
