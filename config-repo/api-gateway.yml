@@ -11,6 +11,20 @@ spring:
     gateway:
       server:
         webflux:
+          # CORS — чтобы браузер пускал запросы со страниц на других портах (Swagger UI сервисов, фронт).
+          # Разрешены любые порты localhost; для боевого адреса фронта добавить его в allowedOriginPatterns
+          globalcors:
+            # ответ на preflight (OPTIONS) даже для путей, которых нет в маршрутах
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns:
+                  - http://localhost:[*]
+                  - http://127.0.0.1:[*]
+                allowedMethods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: true
+                maxAge: 3600
           routes:
             - id: student-service
               uri: lb://student-service
