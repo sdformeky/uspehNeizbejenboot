@@ -1,6 +1,7 @@
 package org.example.courseservice.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.courseservice.dto.CourseDto;
 import org.example.courseservice.dto.CourseRequest;
 import org.example.courseservice.exception.ConflictException;
@@ -25,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -52,13 +54,16 @@ public class CourseService {
     public CourseDto create(CourseRequest request) {
         Course course = new Course();
         apply(course, request);
-        return CourseDto.from(courseRepository.save(course));
+        Course saved = courseRepository.save(course);
+        log.info("Создан курс id={} «{}», статус {}", saved.getId(), saved.getTitle(), saved.getStatus());
+        return CourseDto.from(saved);
     }
 
     @Transactional
     public CourseDto update(Long id, CourseRequest request) {
         Course course = getCourse(id);
         apply(course, request);
+        log.info("Обновлён курс id={} «{}», статус {}", id, course.getTitle(), course.getStatus());
         return CourseDto.from(course);
     }
 
@@ -71,6 +76,7 @@ public class CourseService {
                     + "или переведите курс в архив");
         }
         courseRepository.delete(course);
+        log.info("Удалён курс id={} «{}»", id, course.getTitle());
     }
 
     private Course getCourse(Long id) {
