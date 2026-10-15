@@ -24,6 +24,21 @@
 | `/api/support/**` | support-service |
 | `/api/notifications/**` | notification-service |
 
+## Логирование запросов
+
+`LoggingFilter` (GlobalFilter) пишет в лог каждый запрос, прошедший через маршруты: метод, путь, статус и время ответа.
+
+```
+GET /api/students/1 -> 200 (15 мс)
+POST /api/students -> 400 (45 мс)
+```
+
+## CORS
+
+Настроен в `config-repo/api-gateway.yml` (`globalcors`): разрешены запросы со страниц на любом порту `localhost` / `127.0.0.1` —
+Swagger UI сервисов, фронт на `localhost:3000` и т. п. Запросы с других адресов браузер не пропустит (preflight → 403).
+Когда появится фронт на реальном адресе, его нужно добавить в `allowedOriginPatterns`.
+
 ## Проверка
 
 1. Запустить config-server, eureka-server, нужные сервисы, потом api-gateway.
