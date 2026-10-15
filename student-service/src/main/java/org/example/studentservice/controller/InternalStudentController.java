@@ -16,10 +16,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * API для других сервисов (enrollment-service вызывает его через Feign по этому пути).
- * По ответу видно, существует ли студент и активен ли он.
- */
 @RestController
 @RequestMapping("/api/v1/students")
 @RequiredArgsConstructor

@@ -59,7 +59,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception e, HttpServletRequest request) {
-        // стандартные ошибки Spring (нет пути, не тот метод и т.п.) уже знают свой статус
         if (e instanceof ErrorResponse errorResponse) {
             log.warn("{} {} {}: {}", errorResponse.getStatusCode().value(), request.getMethod(), request.getRequestURI(), e.getMessage());
             return ResponseEntity.status(errorResponse.getStatusCode()).body(errorResponse.getBody());
