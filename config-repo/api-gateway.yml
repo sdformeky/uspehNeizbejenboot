@@ -3,3 +3,64 @@ info:
   app:
     name: api-gateway
     description: Единая точка входа для клиентов
+
+# Маршруты: /api/<путь>/** -> сервис из Eureka (lb:// — по имени, без адресов).
+# StripPrefix=1 убирает /api, и сервис получает обычный путь: /api/students -> /students
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: student-service
+              uri: lb://student-service
+              predicates:
+                - Path=/api/students/**
+              filters:
+                - StripPrefix=1
+            - id: course-service
+              uri: lb://course-service
+              predicates:
+                - Path=/api/courses/**
+              filters:
+                - StripPrefix=1
+            - id: enrollment-service
+              uri: lb://enrollment-service
+              predicates:
+                - Path=/api/enrollments/**
+              filters:
+                - StripPrefix=1
+            - id: certificate-service
+              uri: lb://certificate-service
+              predicates:
+                - Path=/api/certificates/**
+              filters:
+                - StripPrefix=1
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=1
+            - id: support-service
+              uri: lb://support-service
+              predicates:
+                - Path=/api/support/**
+              filters:
+                - StripPrefix=1
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notifications/**
+              filters:
+                - StripPrefix=1
+
+# /actuator/gateway/routes — посмотреть, какие маршруты gateway получил
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,gateway
+  endpoint:
+    gateway:
+      access: read-only
