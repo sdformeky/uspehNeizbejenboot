@@ -4,24 +4,30 @@
 
 Принимает все внешние запросы и по префиксу пути передаёт их нужному сервису.
 Адрес сервиса берётся из Eureka по имени (`lb://student-service`), поэтому порты сервисов клиенту знать не нужно.
+Если сервис запущен в нескольких экземплярах, запросы распределяются между ними.
 
 - Порт: `8080`
 - Регистрируется в Eureka как `api-gateway`
+- Маршруты не в коде, а в [`config-repo/api-gateway.yml`](../config-repo/api-gateway.yml) — gateway получает их из config-server
 
 ## Маршруты
 
+Префикс `/api` снимается фильтром `StripPrefix=1`: запрос `/api/students/1` приходит в student-service как `/students/1`.
+
 | Путь | Сервис |
 |---|---|
-| `/students/**` | student-service |
-| `/courses/**` | course-service |
-| `/enrollments/**` | enrollment-service |
-| `/certificates/**` | certificate-service |
-| `/auth/**` | auth-service |
-| `/support/**` | support-service |
-| `/notifications/**` | notification-service |
+| `/api/students/**` | student-service |
+| `/api/courses/**` | course-service |
+| `/api/enrollments/**` | enrollment-service |
+| `/api/certificates/**` | certificate-service |
+| `/api/auth/**` | auth-service |
+| `/api/support/**` | support-service |
+| `/api/notifications/**` | notification-service |
 
 ## Проверка
 
 1. Запустить config-server, eureka-server, нужные сервисы, потом api-gateway.
-2. На дашборде http://localhost:8761 должны быть `API-GATEWAY` и `STUDENT-SERVICE`.
-3. http://localhost:8080/students — тот же ответ, что и http://localhost:8081/students.
+   Без config-server gateway стартует, но маршрутов у него не будет (все запросы — 404).
+2. На дашборде http://localhost:8761 должны быть `API-GATEWAY` и сервисы.
+3. http://localhost:8080/api/students — тот же ответ, что и http://localhost:8081/students.
+4. Список маршрутов, которые gateway получил: http://localhost:8080/actuator/gateway/routes

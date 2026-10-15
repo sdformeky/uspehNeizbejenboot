@@ -4,39 +4,6 @@ server:
 spring:
   application:
     name: api-gateway
+  # маршруты лежат в config-repo/api-gateway.yml и приходят из config-server
   config:
     import: optional:configserver:http://localhost:8888
-  cloud:
-    gateway:
-      server:
-        webflux:
-          routes:
-            # lb:// — адрес сервиса берётся из Eureka по имени
-            - id: student-service
-              uri: lb://student-service
-              predicates:
-                - Path=/students/**
-            - id: course-service
-              uri: lb://course-service
-              predicates:
-                - Path=/courses/**
-            - id: enrollment-service
-              uri: lb://enrollment-service
-              predicates:
-                - Path=/enrollments/**
-            - id: certificate-service
-              uri: lb://certificate-service
-              predicates:
-                - Path=/certificates/**
-            - id: auth-service
-              uri: lb://auth-service
-              predicates:
-                - Path=/auth/**
-            - id: support-service
-              uri: lb://support-service
-              predicates:
-                - Path=/support/**
-            - id: notification-service
-              uri: lb://notification-service
-              predicates:
-                - Path=/notifications/**
