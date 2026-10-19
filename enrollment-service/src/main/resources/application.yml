@@ -26,14 +26,25 @@ feign:
   circuitbreaker:
     enabled: true # Активируем интеграцию Feign и Circuit Breaker
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers # Добавили circuitbreakers
+  endpoint:
+    health:
+      show-details: always # Позволяет видеть статус CB внутри общего /actuator/health
+
 resilience4j:
   circuitbreaker:
     configs:
       default:
-        slidingWindowType: COUNT_BASED     # Окно на основе количества вызовов
-        slidingWindowSize: 10              # Проверяем последние 10 запросов
-        failureRateThreshold: 50.0         # Размыкаем цепь, если 50% и более запросов упали
-        minimumNumberOfCalls: 5            # Начинаем считать процент ошибок только после 5 вызовов
-        waitDurationInOpenState: 15000ms   # Время (15 сек), которое CB проводит в состоянии OPEN перед переходом в HALF_OPEN
-        permittedNumberOfCallsInHalfOpenState: 3 # Сколько пробных запросов пропустить в HALF_OPEN
+        registerHealthIndicator: true # Регистрирует статус CB в health-check
+        # Наши старые настройки порогов:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        failureRateThreshold: 50.0
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 15000ms
+        permittedNumberOfCallsInHalfOpenState: 3
         automaticTransitionFromOpenToHalfOpenEnabled: true

@@ -27,3 +27,8 @@ spring:
               uri: lb://certificate-service
               predicates:
                 - Path=/certificates/**
+      routes:
+        - id: certificate-service
+          uri: lb://certificate-service
+          predicates:
+            - Path=/api/certificates/**
