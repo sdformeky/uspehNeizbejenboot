@@ -287,36 +287,96 @@ function showPage() {
 
 async function loadCourses() {
     const list = document.getElementById('courses-list');
+    list.innerHTML = skeletonCards(3);
     try {
         courses = await request('GET', '/courses');
     } catch (e) {
         list.innerHTML = '<p class="hint">' + esc(e.message) + '</p>';
         return;
     }
+    renderHeroStats();
+    fillCategoryFilter();
+    renderCourses();
+}
+
+// Черновики и архив видит только администратор — остальным они не нужны и записаться на них нельзя
+function visibleCourses() {
+    return isAdmin() ? courses : courses.filter(function (c) { return c.status === 'PUBLISHED'; });
+}
+
+function renderHeroStats() {
+    const published = courses.filter(function (c) { return c.status === 'PUBLISHED'; });
+    const categories = new Set(published.map(function (c) { return c.categoryName; }).filter(Boolean));
+    const instructors = new Set(published.map(function (c) { return c.instructorName; }).filter(Boolean));
+    const free = published.filter(function (c) { return Number(c.price) === 0; }).length;
+    const stats = [[published.length, 'курсов'], [categories.size, 'направления'], [instructors.size, 'преподавателя'], [free, 'бесплатно']];
+    document.getElementById('hero-stats').innerHTML = stats.map(function (st) {
+        return '<div class="stat"><b>' + st[0] + '</b><span>' + st[1] + '</span></div>';
+    }).join('');
+}
+
+function fillCategoryFilter() {
+    const select = document.getElementById('course-category');
+    const current = select.value;
+    const names = Array.from(new Set(visibleCourses().map(function (c) { return c.categoryName; }).filter(Boolean))).sort();
+    select.innerHTML = '<option value="">Все категории</option>' +
+        names.map(function (n) { return '<option' + (n === current ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+}
+
+function renderCourses() {
+    const list = document.getElementById('courses-list');
+    const query = document.getElementById('course-search').value.trim().toLowerCase();
+    const category = document.getElementById('course-category').value;
+    const onlyFree = document.getElementById('course-free').checked;
+    const found = visibleCourses().filter(function (c) {
+        const text = (c.title + ' ' + (c.description || '') + ' ' + c.tags.join(' ')).toLowerCase();
+        return (!query || text.includes(query))
+            && (!category || c.categoryName === category)
+            && (!onlyFree || Number(c.price) === 0);
+    });
     let html = '';
-    for (const c of courses) {
+    for (const c of found) {
         let tags = '';
         for (const t of c.tags) {
             tags += '<span class="tag">' + esc(t) + '</span>';
         }
         const price = Number(c.price) === 0 ? 'Бесплатно' : Number(c.price).toLocaleString('ru-RU') + ' ₽';
+        const draft = c.status !== 'PUBLISHED';
         html +=
-            '<div class="card course">' +
+            '<div class="card course' + (draft ? ' draft' : '') + '">' +
+            '  <div class="course-top"><span class="tag category">' + esc(c.categoryName || 'Без категории') + '</span>' +
+            (draft ? '<span class="badge red">' + (c.status === 'DRAFT' ? 'Черновик' : 'В архиве') + '</span>' : '') + '</div>' +
             '  <h2><a href="#course/' + c.id + '">' + esc(c.title) + '</a></h2>' +
-            '  <div class="meta">' + esc(c.categoryName) + ' · ' + esc(c.instructorName) +
-            '    · ' + formatDate(c.startDate) + ' — ' + formatDate(c.endDate) + '</div>' +
-            '  <p>' + esc(c.description) + '</p>' +
+            '  <div class="meta">' + esc(c.instructorName || 'Преподаватель не назначен') +
+            (c.startDate ? ' · ' + formatDate(c.startDate) + ' — ' + formatDate(c.endDate) : '') + '</div>' +
+            '  <p>' + esc(c.description || '') + '</p>' +
             '  <div class="tags">' + tags + '</div>' +
             '  <div class="bottom">' +
-            '    <span class="price">' + price + '</span>' +
-            '    <span>' +
-            '      <a class="button-link" href="#course/' + c.id + '">Подробнее</a> ' +
-            '      <button onclick="enroll(' + c.id + ')">Записаться</button>' +
-            '    </span>' +
+            '    <div><div class="price">' + price + '</div>' +
+            (c.maxStudents ? '<div class="hint">до ' + c.maxStudents + ' студентов</div>' : '') + '</div>' +
+            '    <div class="actions">' +
+            '      <a class="button-link" href="#course/' + c.id + '">Подробнее</a>' +
+            (draft ? '' : '<button onclick="enroll(' + c.id + ')">Записаться</button>') +
+            '    </div>' +
             '  </div>' +
             '</div>';
     }
-    list.innerHTML = html || '<p class="hint">Курсов пока нет.</p>';
+    list.innerHTML = html || '<p class="hint">' + (visibleCourses().length === 0
+        ? 'Курсов пока нет.'
+        : 'Ничего не нашлось — попробуйте изменить поиск или фильтры.') + '</p>';
+}
+
+function skeletonCards(count) {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        html += '<div class="card course skeleton"><div class="line w40"></div><div class="line w80"></div>' +
+            '<div class="line w60"></div><div class="line"></div><div class="line w30"></div></div>';
+    }
+    return html;
+}
+
+function loader(text) {
+    return '<p class="hint loading"><span class="spinner"></span>' + esc(text || 'Загрузка…') + '</p>';
 }
 
 // Запись: enrollment-service сам проверит студента и курс через Feign и пришлёт уведомление (notification-service).
@@ -362,6 +422,12 @@ async function enroll(courseId) {
 async function loadCoursePage(id) {
     myEnrollment = null;
     completedLessons = [];
+    document.getElementById('course-title').innerHTML = '<span class="spinner"></span>Загрузка…';
+    for (const block of ['course-meta', 'course-description', 'course-tags', 'course-price', 'course-rating',
+        'course-program-summary']) {
+        document.getElementById(block).textContent = '';
+    }
+    document.getElementById('course-program').innerHTML = loader('Загружаем программу…');
     try {
         coursePage = await request('GET', '/courses/' + id + '/page');
     } catch (e) {
@@ -602,6 +668,7 @@ async function renderMyEnrollments() {
         body.innerHTML = '<tr><td colspan="5" class="hint">Нет профиля студента.</td></tr>';
         return;
     }
+    body.innerHTML = '<tr><td colspan="5">' + loader('Загружаем ваши курсы…') + '</td></tr>';
     if (courses.length === 0) {
         courses = await request('GET', '/courses');
     }
@@ -949,6 +1016,9 @@ document.getElementById('verify-form').addEventListener('submit', checkCertifica
 document.getElementById('post-form').addEventListener('submit', addPost);
 document.getElementById('review-form').addEventListener('submit', addReview);
 document.getElementById('course-enroll').addEventListener('click', function () { enroll(coursePage.course.id); });
+document.getElementById('course-search').addEventListener('input', renderCourses);
+document.getElementById('course-category').addEventListener('change', renderCourses);
+document.getElementById('course-free').addEventListener('change', renderCourses);
 window.addEventListener('hashchange', showPage);
 
 renderUserBox();

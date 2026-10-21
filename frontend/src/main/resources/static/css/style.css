@@ -93,7 +93,48 @@ h3 { font-size: 15px; margin: 20px 0 8px; }
 .course .meta { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
 .course p { flex: 1; margin: 0 0 12px; }
 .course .bottom { display: flex; align-items: center; justify-content: space-between; }
-.price { font-weight: 700; }
+.price { font-weight: 700; font-size: 18px; white-space: nowrap; }
+.course .actions { display: flex; gap: 8px; align-items: center; }
+.course-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.tag.category { background: var(--ok-bg); color: var(--accent-dark); }
+.course.draft { border-style: dashed; opacity: .85; }
+
+/* ---------- главный экран ---------- */
+.hero {
+    display: flex; gap: 32px; align-items: center; justify-content: space-between;
+    padding: 36px 40px; margin-bottom: 32px; border-radius: 14px; color: #fff;
+    background: linear-gradient(135deg, var(--accent-dark), var(--accent) 60%, #2e9c76);
+}
+.hero h1 { margin: 0 0 12px; font-size: 32px; line-height: 1.2; color: #fff; }
+.hero h1 span { color: #c8f1dd; }
+.hero p { margin: 0 0 20px; max-width: 560px; line-height: 1.5; color: #e6f6ee; }
+.hero button { background: #fff; color: var(--accent-dark); font-weight: 600; }
+.hero button:hover { background: #e6f6ee; }
+.hero-stats { display: grid; grid-template-columns: repeat(2, 110px); gap: 12px; }
+.stat { background: rgba(255, 255, 255, .14); border-radius: 10px; padding: 12px; text-align: center; }
+.stat b { display: block; font-size: 28px; }
+.stat span { font-size: 13px; color: #e6f6ee; }
+.section-title { margin: 0 0 12px; }
+
+/* ---------- фильтры каталога ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+.filters input[type=search] { flex: 1; min-width: 220px; }
+.filters select { min-width: 180px; }
+.check { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; font-size: 14px; }
+.check input { width: auto; margin: 0; }
+.course .bottom { flex-wrap: wrap; gap: 10px; }
+.course .bottom .hint { white-space: nowrap; }
+
+/* ---------- загрузка ---------- */
+.spinner {
+    display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px;
+    border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton .line { height: 12px; margin: 10px 0; border-radius: 6px; background: linear-gradient(90deg, var(--bg), var(--border), var(--bg)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+.skeleton .w30 { width: 30%; } .skeleton .w40 { width: 40%; } .skeleton .w60 { width: 60%; } .skeleton .w80 { width: 80%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
 .tags { margin-bottom: 12px; }
 .tag {
     display: inline-block;
@@ -212,6 +253,8 @@ details p { margin: 8px 0 0; color: var(--muted); }
     .columns, .columns.wide-left { grid-template-columns: 1fr; }
     .course-head { flex-direction: column; }
     .course-side { align-items: flex-start; }
+    .hero { flex-direction: column; align-items: flex-start; padding: 24px; }
+    .hero h1 { font-size: 24px; }
     .row { flex-direction: column; }
     .user { margin-left: 0; }
     .table { font-size: 13px; }

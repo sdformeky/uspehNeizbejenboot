@@ -27,7 +27,24 @@
 
     <!-- Каталог курсов: course-service -->
     <section id="page-courses" class="page">
-        <h1>Каталог курсов</h1>
+        <div class="hero">
+            <div class="hero-text">
+                <h1>Учитесь у практиков — <span>успех неизбежен</span></h1>
+                <p>Курсы по программированию, дизайну и базам данных: уроки по шагам, прогресс в личном кабинете
+                    и сертификат с номером, который проверит любой работодатель.</p>
+                <button type="button" onclick="document.getElementById('catalog').scrollIntoView({ behavior: 'smooth' })">Выбрать курс</button>
+            </div>
+            <div id="hero-stats" class="hero-stats"></div>
+        </div>
+
+        <h2 id="catalog" class="section-title">Каталог курсов</h2>
+        <div class="filters">
+            <input id="course-search" type="search" placeholder="Поиск по названию, описанию или тегу">
+            <select id="course-category">
+                <option value="">Все категории</option>
+            </select>
+            <label class="check"><input id="course-free" type="checkbox"> Только бесплатные</label>
+        </div>
         <div id="courses-list" class="cards"></div>
     </section>
 
