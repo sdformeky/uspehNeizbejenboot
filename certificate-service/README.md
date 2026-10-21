@@ -11,6 +11,9 @@
 
 | Метод | Путь | Описание | Ответ |
 |---|---|---|---|
-| POST | `/certificates?enrollmentId=1` | Выпустить сертификат по записи на курс | `201` |
+| POST | `/certificates?enrollmentId=1` | Выпустить сертификат по записи; повторный вызов вернёт уже выданный | `201` |
+| GET | `/certificates?enrollmentId=` | Сертификаты (все или по записи) | `200` |
+| GET | `/certificates/{номер}` | Проверить сертификат по номеру | `200`, `404` |
 
-Вызывается из enrollment-service после записи на курс. Через api-gateway: `POST http://localhost:8080/api/certificates?enrollmentId=1`.
+Номер — `UN-<год>-<id записи из 6 цифр>`, например `UN-2026-000001`. Шаблон «Стандартный» создаётся из `data.sql`.
+Выпуск вызывает enrollment-service после записи на курс. Через api-gateway: `http://localhost:8080/api/certificates/...`.
