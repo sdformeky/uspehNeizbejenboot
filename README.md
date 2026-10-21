@@ -68,20 +68,27 @@ Gateway в первые ~30 секунд после своего старта м
 ## API через gateway
 
 Все запросы — на `http://localhost:8080/api/...`, gateway убирает `/api` и передаёт запрос сервису.
-CORS открыт для любого порта `localhost` и `127.0.0.1`. Ошибки student- и course-service — в формате
+CORS открыт для любого порта `localhost` и `127.0.0.1`. Ошибки — в формате
 [Problem Details](https://www.rfc-editor.org/rfc/rfc9457) (`title`, `detail`, `status`, при ошибке валидации — `errors` по полям).
 
-| Сервис | Метод и путь | Что делает |
+Кроме открытых запросов нужен токен: `Authorization: Bearer <token>` из `POST /api/auth/login` или `/register`
+(подробнее — раздел «Вход и права» ниже). Без токена — `401`, без нужной роли — `403`.
+
+| Сервис | Метод и путь | Кому доступно |
 |---|---|---|
-| student-service | `GET /api/students`, `GET /api/students/{id}` | Список студентов, студент по id |
-| | `POST /api/students`, `PUT /api/students/{id}`, `DELETE /api/students/{id}` | Создать, обновить целиком, удалить |
-| course-service | `GET /api/courses`, `GET /api/courses/{id}` | Каталог курсов, курс по id |
-| | `POST /api/courses`, `PUT /api/courses/{id}`, `DELETE /api/courses/{id}` | Создать (по умолчанию `DRAFT`), обновить целиком, удалить |
-| enrollment-service | `POST /api/enrollments?studentId=&courseId=` | Записать студента на курс — параметры в URL, не в теле |
-| certificate-service | `POST /api/certificates?enrollmentId=` | Выдать сертификат по записи |
+| auth-service | `POST /api/auth/register`, `POST /api/auth/login` | всем — выдают токен |
+| | `GET /api/auth/users` | ADMIN |
+| course-service | `GET /api/courses`, `GET /api/courses/{id}` | всем |
+| | `POST /api/courses`, `PUT /api/courses/{id}`, `DELETE /api/courses/{id}` | ADMIN |
+| student-service | `POST /api/students` | вошедшему — только свой профиль (`userId` = свой); ADMIN — любой |
+| | `GET /api/students/{id}` | вошедшему |
+| | `GET /api/students`, `PUT /api/students/{id}`, `DELETE /api/students/{id}` | ADMIN |
+| enrollment-service | `POST /api/enrollments?studentId=&courseId=` | вошедшему — только свой профиль; параметры в URL, не в теле |
+| | `GET /api/enrollments?studentId=` / `GET /api/enrollments` | свои / все — ADMIN |
+| certificate-service | `GET /api/certificates?enrollmentId=`, `GET /api/certificates/{номер}` | всем — проверка подлинности |
+| notification-service | `GET /api/notifications?userId=`, `GET /api/notifications/unread-count?userId=` | только свои |
 
 Подробности, тела запросов и коды ответов — в README сервисов и в Swagger.
-У auth-, support- и notification-service пока есть только модели, эндпоинтов нет.
 
 ## Postman
 
@@ -89,10 +96,14 @@ CORS открыт для любого порта `localhost` и `127.0.0.1`. О�
 
 1. Postman → Import → оба файла из `postman/`.
 2. Справа вверху выбрать окружение **uspeh — localhost**.
-3. Папка **1. Демо-сценарий** — для защиты, запускать запросы по порядку: курс → публикация → студент →
-   запись → повторная запись (`409`) → сертификат. id передаются между запросами сами.
-4. Остальные папки — по сервисам: успешные запросы и ошибки (`400`, `404`, `409`). Каждая папка создаёт свои данные,
-   поэтому коллекцию можно гонять сколько угодно раз. В каждом запросе есть автотесты — вкладка Test Results.
+3. Запустить папку **0. Вход и права**: вход администратора (демо-аккаунт), регистрация нового студента и проверки
+   `401`/`403`. Токены сохраняются в переменные коллекции, остальные запросы подставляют их сами.
+4. Папка **1. Демо-сценарий** — для защиты, по порядку: администратор создаёт и публикует курс → студент
+   регистрируется, заполняет профиль и записывается → повторная запись (`409`) → свои записи, сертификат,
+   проверка сертификата по номеру и уведомление о записи. Папка самодостаточна.
+5. Остальные папки — по сервисам: успешные запросы и ошибки (`400`, `401`, `403`, `404`, `409`). Каждый прогон
+   регистрирует нового студента и создаёт свои данные, поэтому коллекцию можно гонять сколько угодно раз.
+   В каждом запросе есть автотесты — вкладка Test Results.
 
 Прогнать всю коллекцию из консоли (нужен Node.js):
 
@@ -108,6 +119,8 @@ npx newman run postman/uspeh.postman_collection.json -e postman/uspeh.postman_en
 | `password authentication failed for user "student_app"` | Не задан или неверный `DB_PASSWORD`; после изменения перезапустить IDEA |
 | `Failed to configure a DataSource` | config-server не запущен или запущен не из корня проекта (не видит `config-repo`) |
 | Gateway отвечает `503` | Сервис ещё не зарегистрировался в Eureka — подождать ~30 секунд |
+| `401` «Нужно войти» / «Сессия недействительна» | Нет токена или он истёк (12 часов) — войти заново, в Postman — перезапустить папку «0. Вход и права» |
+| `403` «Доступно только администратору» | Запрос требует роль ADMIN — войти как `admin@uspeh.ru` |
 | Запись на курс отвечает `502` | student- или course-service недоступен, сработал circuit breaker — запустить сервис и подождать |
 
 ## Демо-сценарий

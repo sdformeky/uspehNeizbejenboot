@@ -2,16 +2,391 @@
   "info": {
     "_postman_id": "bd35797f-4c92-5fb5-869b-69deac9c7461",
     "name": "uspehNeizbejenboot — онлайн-школа",
-    "description": "Запросы ко всем сервисам через api-gateway (http://localhost:8080/api). Папка «1. Демо-сценарий» — для защиты, по шагам. Остальные папки — по сервисам, каждая создаёт свои данные.",
+    "description": "Запросы ко всем сервисам через api-gateway (http://localhost:8080/api) с входом по JWT. «0. Вход и права» запускается первой. «1. Демо-сценарий» — для защиты, по шагам. Остальные папки — по сервисам, каждая создаёт свои данные.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "1. Демо-сценарий",
-      "description": "Запускать по порядку: курс → публикация → студент → запись → повторная запись → сертификат. Нужны тестовые данные из data.sql (категория, преподаватель, теги и группа с id 1).",
+      "name": "0. Вход и права",
+      "description": "Вход администратора (демо-аккаунт из data.sql auth-service), регистрация студента и проверки доступа. Запустите эту папку первой: остальные берут из неё токены.",
       "item": [
         {
-          "name": "1. Каталог курсов",
+          "name": "Вход администратора",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Выдан токен\", () => pm.expect(pm.response.json().token).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"adminToken\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Регистрация нового студента",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Каждый запуск — новый пользователь: email генерируется в pre-request скрипте."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"studentEmail\", \"student\" + Date.now() + \"@uspeh.test\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Роль STUDENT\", () => pm.expect(JSON.stringify(pm.response.json().user)).to.include(\"STUDENT\"));",
+                  "pm.collectionVariables.set(\"studentToken\", pm.response.json().token);",
+                  "pm.collectionVariables.set(\"studentUserId\", pm.response.json().user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Вход студента",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"studentToken\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Неверный пароль — 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"wrong-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Без токена — 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "students"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Студент: список всех студентов — 403",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "students"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Студент: создать курс — 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "courses"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Демо: Spring Boot за неделю\",\n  \"description\": \"Курс, созданный в демо-сценарии\",\n  \"price\": 4990.0,\n  \"maxStudents\": 10,\n  \"startDate\": \"2026-11-09\",\n  \"endDate\": \"2026-11-16\",\n  \"categoryId\": 1,\n  \"instructorId\": 1,\n  \"tagIds\": [\n    1,\n    2\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Студент: профиль на чужого пользователя — 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "students"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 999999,\n  \"firstName\": \"Демо\",\n  \"lastName\": \"Студентов\",\n  \"phone\": \"+79990000000\",\n  \"birthDate\": \"2005-01-01\",\n  \"groupId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Демо-сценарий",
+      "description": "Для защиты, по порядку: администратор создаёт и публикует курс → студент регистрируется, заполняет профиль и записывается → видит свою запись, сертификат и уведомление. Папка самодостаточна.",
+      "item": [
+        {
+          "name": "1. Каталог курсов (без входа)",
           "request": {
             "method": "GET",
             "header": [],
@@ -23,6 +398,9 @@
               "path": [
                 "courses"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -39,7 +417,54 @@
           ]
         },
         {
-          "name": "2. Преподаватель создаёт курс (черновик)",
+          "name": "2. Вход администратора",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Выдан токен\", () => pm.expect(pm.response.json().token).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"adminToken\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Администратор создаёт курс (черновик)",
           "request": {
             "method": "POST",
             "header": [
@@ -55,6 +480,16 @@
               ],
               "path": [
                 "courses"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             },
             "body": {
@@ -82,7 +517,7 @@
           ]
         },
         {
-          "name": "3. Курс публикуется",
+          "name": "4. Администратор публикует курс",
           "request": {
             "method": "PUT",
             "header": [
@@ -99,6 +534,16 @@
               "path": [
                 "courses",
                 "{{demoCourseId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             },
             "body": {
@@ -125,7 +570,65 @@
           ]
         },
         {
-          "name": "4. Регистрируется студент",
+          "name": "5. Студент регистрируется",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Каждый запуск — новый пользователь: email генерируется в pre-request скрипте."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"studentEmail\", \"student\" + Date.now() + \"@uspeh.test\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Роль STUDENT\", () => pm.expect(JSON.stringify(pm.response.json().user)).to.include(\"STUDENT\"));",
+                  "pm.collectionVariables.set(\"studentToken\", pm.response.json().token);",
+                  "pm.collectionVariables.set(\"studentUserId\", pm.response.json().user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Студент заполняет профиль",
           "request": {
             "method": "POST",
             "header": [
@@ -143,9 +646,19 @@
                 "students"
               ]
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Демо\",\n  \"lastName\": \"Студентов\",\n  \"phone\": \"+79990000000\",\n  \"birthDate\": \"2005-01-01\",\n  \"groupId\": 1\n}",
+              "raw": "{\n  \"userId\": {{studentUserId}},\n  \"firstName\": \"Демо\",\n  \"lastName\": \"Студентов\",\n  \"phone\": \"+79990000000\",\n  \"birthDate\": \"2005-01-01\",\n  \"groupId\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -160,7 +673,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Статус 201\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"Студент активен\", () => pm.expect(pm.response.json().status).to.eql(\"ACTIVE\"));",
+                  "pm.test(\"Профиль привязан к пользователю\", () => pm.expect(String(pm.response.json().userId)).to.eql(String(pm.collectionVariables.get(\"studentUserId\"))));",
                   "pm.collectionVariables.set(\"demoStudentId\", pm.response.json().id);"
                 ]
               }
@@ -168,7 +681,7 @@
           ]
         },
         {
-          "name": "5. Студент записывается на курс",
+          "name": "7. Студент записывается на курс",
           "request": {
             "method": "POST",
             "header": [],
@@ -191,7 +704,17 @@
                 }
               ]
             },
-            "description": "enrollment-service через Feign проверяет студента и курс, сохраняет запись и вызывает certificate-service."
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "enrollment-service через Feign проверяет студента и курс, сохраняет запись, выпускает сертификат и шлёт уведомление."
           },
           "event": [
             {
@@ -208,7 +731,7 @@
           ]
         },
         {
-          "name": "6. Повторная запись запрещена",
+          "name": "8. Повторная запись — 409",
           "request": {
             "method": "POST",
             "header": [],
@@ -230,6 +753,16 @@
                   "value": "{{demoCourseId}}"
                 }
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -245,9 +778,53 @@
           ]
         },
         {
-          "name": "7. Выдача сертификата",
+          "name": "9. Мои записи",
           "request": {
-            "method": "POST",
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments?studentId={{demoStudentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments"
+              ],
+              "query": [
+                {
+                  "key": "studentId",
+                  "value": "{{demoStudentId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Есть запись на демо-курс\", () => pm.expect(pm.response.json().map(e => e.courseId)).to.include(Number(pm.collectionVariables.get(\"demoCourseId\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Сертификат по записи",
+          "request": {
+            "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/certificates?enrollmentId={{demoEnrollmentId}}",
@@ -263,6 +840,9 @@
                   "value": "{{demoEnrollmentId}}"
                 }
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -271,8 +851,86 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Статус 201\", () => pm.response.to.have.status(201));",
-                  "pm.test(\"Сертификат относится к записи\", () => pm.expect(pm.response.json().enrollmentId).to.eql(Number(pm.collectionVariables.get(\"demoEnrollmentId\"))));"
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json(); const cert = Array.isArray(body) ? body[0] : body;",
+                  "pm.test(\"Сертификат выпущен, есть номер\", () => pm.expect(cert.number).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"certNumber\", cert.number);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Проверка сертификата по номеру (без входа)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/certificates/{{certNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates",
+                "{{certNumber}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Тот же сертификат\", () => pm.expect(pm.response.json().number).to.eql(pm.collectionVariables.get(\"certNumber\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Уведомление о записи",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications?userId={{studentUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{studentUserId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Есть уведомление о записи\", () => pm.expect(JSON.stringify(pm.response.json())).to.include(\"записаны\"));"
                 ]
               }
             }
@@ -282,7 +940,7 @@
     },
     {
       "name": "2. Студенты (student-service)",
-      "description": "CRUD студентов: /api/students",
+      "description": "CRUD студентов под администратором: /api/students",
       "item": [
         {
           "name": "Список студентов",
@@ -296,6 +954,16 @@
               ],
               "path": [
                 "students"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             }
           },
@@ -324,6 +992,16 @@
               "path": [
                 "students",
                 "{{studentId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             }
           },
@@ -356,6 +1034,16 @@
               ],
               "path": [
                 "students"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             },
             "body": {
@@ -401,6 +1089,16 @@
                 "{{tmpStudentId}}"
               ]
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"Тест\",\n  \"lastName\": \"Изменённый\",\n  \"phone\": \"+79161112233\",\n  \"birthDate\": \"2006-02-02\",\n  \"groupId\": 1,\n  \"status\": \"BLOCKED\"\n}",
@@ -443,6 +1141,16 @@
                 "students"
               ]
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"\",\n  \"phone\": \"12\",\n  \"birthDate\": \"2099-01-01\"\n}",
@@ -461,7 +1169,7 @@
                 "exec": [
                   "pm.test(\"Статус 400\", () => pm.response.to.have.status(400));",
                   "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(400));",
-                  "pm.test(\"Ошибки по полям\", () => pm.expect(pm.response.json().errors).to.have.keys(\"firstName\", \"lastName\", \"phone\", \"birthDate\"));"
+                  "pm.test(\"Ошибки по полям\", () => pm.expect(pm.response.json().errors).to.include.keys(\"firstName\", \"lastName\", \"phone\", \"birthDate\"));"
                 ]
               }
             }
@@ -484,6 +1192,16 @@
               ],
               "path": [
                 "students"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             },
             "body": {
@@ -523,6 +1241,16 @@
                 "students",
                 "999999"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -551,6 +1279,16 @@
               "path": [
                 "students",
                 "abc"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             }
           },
@@ -581,6 +1319,16 @@
                 "students",
                 "{{tmpStudentId}}"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -609,6 +1357,16 @@
                 "students",
                 "{{tmpStudentId}}"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -628,10 +1386,10 @@
     },
     {
       "name": "3. Курсы (course-service)",
-      "description": "CRUD курсов: /api/courses",
+      "description": "Каталог открыт всем, изменения — только администратор: /api/courses",
       "item": [
         {
-          "name": "Список курсов",
+          "name": "Список курсов (без входа)",
           "request": {
             "method": "GET",
             "header": [],
@@ -643,6 +1401,9 @@
               "path": [
                 "courses"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -658,7 +1419,7 @@
           ]
         },
         {
-          "name": "Курс по id",
+          "name": "Курс по id (без входа)",
           "request": {
             "method": "GET",
             "header": [],
@@ -671,6 +1432,9 @@
                 "courses",
                 "{{courseId}}"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -703,6 +1467,16 @@
               ],
               "path": [
                 "courses"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             },
             "body": {
@@ -748,6 +1522,16 @@
                 "{{tmpCourseId}}"
               ]
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Временный курс v2\",\n  \"price\": 0,\n  \"status\": \"ARCHIVED\"\n}",
@@ -788,6 +1572,16 @@
               ],
               "path": [
                 "courses"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
               ]
             },
             "body": {
@@ -833,6 +1627,16 @@
                 "courses"
               ]
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"X\",\n  \"price\": 1,\n  \"categoryId\": 999999\n}",
@@ -870,6 +1674,9 @@
                 "courses",
                 "999999"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -899,6 +1706,16 @@
                 "courses",
                 "{{tmpCourseId}}"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -927,6 +1744,9 @@
                 "courses",
                 "{{tmpCourseId}}"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -946,10 +1766,68 @@
     },
     {
       "name": "4. Записи на курс (enrollment-service)",
-      "description": "POST /api/enrollments?studentId=&courseId= — параметры в URL, не в теле",
+      "description": "POST /api/enrollments?studentId=&courseId= — параметры в URL. Студент записывает только свой профиль.",
       "item": [
         {
           "name": "Подготовка: новый студент",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Каждый запуск — новый пользователь: email генерируется в pre-request скрипте."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"studentEmail\", \"student\" + Date.now() + \"@uspeh.test\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Роль STUDENT\", () => pm.expect(JSON.stringify(pm.response.json().user)).to.include(\"STUDENT\"));",
+                  "pm.collectionVariables.set(\"studentToken\", pm.response.json().token);",
+                  "pm.collectionVariables.set(\"studentUserId\", pm.response.json().user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Подготовка: профиль студента",
           "request": {
             "method": "POST",
             "header": [
@@ -967,9 +1845,19 @@
                 "students"
               ]
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Тест\",\n  \"lastName\": \"Записанный\",\n  \"phone\": \"+79161112233\",\n  \"birthDate\": \"2006-02-02\",\n  \"groupId\": 1\n}",
+              "raw": "{\n  \"userId\": {{studentUserId}},\n  \"firstName\": \"Демо\",\n  \"lastName\": \"Записанный\",\n  \"phone\": \"+79990000000\",\n  \"birthDate\": \"2005-01-01\",\n  \"groupId\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -991,7 +1879,7 @@
           ]
         },
         {
-          "name": "Записать на курс",
+          "name": "Записаться на курс",
           "request": {
             "method": "POST",
             "header": [],
@@ -1011,6 +1899,16 @@
                 {
                   "key": "courseId",
                   "value": "{{courseId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
                 }
               ]
             }
@@ -1051,6 +1949,16 @@
                   "value": "{{courseId}}"
                 }
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -1086,6 +1994,16 @@
                 {
                   "key": "courseId",
                   "value": "{{courseId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
                 }
               ]
             }
@@ -1125,6 +2043,16 @@
                   "value": "999999"
                 }
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -1152,6 +2080,16 @@
               "path": [
                 "enrollments"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -1165,17 +2103,182 @@
               }
             }
           ]
+        },
+        {
+          "name": "Записать чужой профиль — 403",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments?studentId={{studentId}}&courseId={{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments"
+              ],
+              "query": [
+                {
+                  "key": "studentId",
+                  "value": "{{studentId}}"
+                },
+                {
+                  "key": "courseId",
+                  "value": "{{courseId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Мои записи",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments?studentId={{enrStudentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments"
+              ],
+              "query": [
+                {
+                  "key": "studentId",
+                  "value": "{{enrStudentId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Все записи — администратор",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Все записи — студенту 403",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(403));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "5. Сертификаты (certificate-service)",
-      "description": "POST /api/certificates?enrollmentId=",
+      "description": "Просмотр и проверка по номеру открыты всем",
       "item": [
         {
-          "name": "Выдать сертификат",
+          "name": "Сертификат по записи",
           "request": {
-            "method": "POST",
+            "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/certificates?enrollmentId={{enrollmentId}}",
@@ -1191,6 +2294,9 @@
                   "value": "{{enrollmentId}}"
                 }
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -1199,7 +2305,39 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Статус 201\", () => pm.response.to.have.status(201));"
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Несуществующий номер — 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/certificates/CERT-0000-000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates",
+                "CERT-0000-000000"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(404));"
                 ]
               }
             }
@@ -1208,7 +2346,144 @@
       ]
     },
     {
-      "name": "6. Инфраструктура",
+      "name": "6. Уведомления (notification-service)",
+      "description": "Только свои: ?userId= должен совпадать с вошедшим",
+      "item": [
+        {
+          "name": "Мои уведомления",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications?userId={{studentUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{studentUserId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Непрочитанные",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/unread-count?userId={{studentUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "unread-count"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{studentUserId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Чужие уведомления — 403",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications?userId=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "1"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Инфраструктура",
       "description": "Eureka, gateway и circuit breaker — напрямую, не через /api",
       "item": [
         {
@@ -1230,6 +2505,9 @@
                 "eureka",
                 "apps"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -1239,7 +2517,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Зарегистрированы student, course, enrollment, certificate\", () => { const names = pm.response.json().applications.application.map(a => a.name); [\"STUDENT-SERVICE\",\"COURSE-SERVICE\",\"ENROLLMENT-SERVICE\",\"CERTIFICATE-SERVICE\",\"API-GATEWAY\"].forEach(n => pm.expect(names).to.include(n)); });"
+                  "pm.test(\"Зарегистрированы основные сервисы\", () => { const names = pm.response.json().applications.application.map(a => a.name); [\"STUDENT-SERVICE\",\"COURSE-SERVICE\",\"ENROLLMENT-SERVICE\",\"CERTIFICATE-SERVICE\",\"AUTH-SERVICE\",\"API-GATEWAY\"].forEach(n => pm.expect(names).to.include(n)); });"
                 ]
               }
             }
@@ -1259,6 +2537,9 @@
                 "actuator",
                 "health"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -1288,6 +2569,9 @@
                 "gateway",
                 "routes"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -1316,6 +2600,9 @@
                 "actuator",
                 "health"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -1345,6 +2632,9 @@
                 "actuator",
                 "circuitbreakers"
               ]
+            },
+            "auth": {
+              "type": "noauth"
             }
           },
           "event": [
@@ -1379,6 +2669,18 @@
     {
       "key": "enrollmentUrl",
       "value": "http://localhost:8083"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@uspeh.ru"
+    },
+    {
+      "key": "adminPassword",
+      "value": "admin123"
+    },
+    {
+      "key": "studentPassword",
+      "value": "student123"
     },
     {
       "key": "studentId",
