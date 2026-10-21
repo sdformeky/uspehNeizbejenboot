@@ -19,9 +19,27 @@ management:
     env:
       enabled: true
 
+# /actuator/info: название и описание — в файле сервиса, версия общая (как в pom.xml)
+info:
+  app:
+    version: 0.0.1-SNAPSHOT
+
+# Единый формат логов для всех сервисов: время, уровень, сервис, поток, класс, сообщение.
+# Пишется и в консоль, и в файл logs/<имя-сервиса>.log
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${spring.application.name}] [%thread] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${spring.application.name}] [%thread] %logger{36} - %msg%n"
+  file:
+    name: logs/${spring.application.name}.log
   level:
+    root: INFO
     org.example: INFO
+
+# Учитывать заголовки X-Forwarded-*, которые ставит api-gateway:
+# тогда Swagger сервиса показывает адрес gateway, а не свой порт
+server:
+  forward-headers-strategy: framework
 
 # База общая для всех сервисов, таблицы создаёт Hibernate по сущностям.
 spring:
