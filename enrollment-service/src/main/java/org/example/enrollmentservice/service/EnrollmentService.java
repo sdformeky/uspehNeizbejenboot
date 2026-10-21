@@ -12,6 +12,7 @@ import org.example.enrollmentservice.dto.StudentDto;
 import org.example.enrollmentservice.exception.ConflictException;
 import org.example.enrollmentservice.exception.ForbiddenException;
 import org.example.enrollmentservice.model.Enrollment;
+import org.example.enrollmentservice.model.EnrollmentStatus;
 import org.example.enrollmentservice.repository.EnrollmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,10 +35,20 @@ public class EnrollmentService {
         // 1. Валидация в соседних сервисах
         StudentDto student = studentClient.getStudentById(studentId);
         checkOwner(student, currentUserId, roles);
+        if (!"ACTIVE".equals(student.getStatus())) {
+            throw new ConflictException("Студент " + studentId + " заблокирован — запись на курсы недоступна");
+        }
         CourseDto course = courseClient.getCourseById(courseId);
+        if (!"PUBLISHED".equals(course.getStatus())) {
+            throw new ConflictException("Курс " + courseId + " не открыт для записи");
+        }
 
         if (enrollmentRepository.existsByStudentIdAndCourseId(studentId, courseId)) {
             throw new ConflictException("Студент " + studentId + " уже записан на курс " + courseId);
+        }
+        if (course.getMaxStudents() != null
+                && enrollmentRepository.countByCourseIdAndStatusNot(courseId, EnrollmentStatus.CANCELLED) >= course.getMaxStudents()) {
+            throw new ConflictException("На курсе " + courseId + " нет свободных мест");
         }
 
         // 2. Создание записи в БД
