@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/enrollments")
 @RequiredArgsConstructor
@@ -38,6 +40,10 @@ public class EnrollmentController {
             content = @Content(examples = @ExampleObject(value = "{\"error\": \"Not Found\", \"message\": \"Ресурс не найден в зависимом сервисе...\"}"))
         ),
         @ApiResponse(
+            responseCode = "403",
+            description = "Попытка записать чужой профиль студента"
+        ),
+        @ApiResponse(
             responseCode = "409",
             description = "Студент уже записан на этот курс"
         ),
@@ -52,9 +58,24 @@ public class EnrollmentController {
             @RequestParam Long studentId,
             
             @Parameter(description = "ID курса", example = "105", required = true)
-            @RequestParam Long courseId
+            @RequestParam Long courseId,
+
+            // заголовки ставит api-gateway по токену
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles
     ) {
-        Enrollment created = enrollmentService.createEnrollment(studentId, courseId);
+        Enrollment created = enrollmentService.createEnrollment(studentId, courseId, currentUserId, roles);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @GetMapping
+    @Operation(summary = "Записи на курсы", description = "Все записи или записи одного студента (?studentId=)")
+    public List<Enrollment> getAll(
+            @Parameter(description = "ID студента", example = "1")
+            @RequestParam(required = false) Long studentId,
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles
+    ) {
+        return enrollmentService.findAll(studentId, currentUserId, roles);
     }
 }
