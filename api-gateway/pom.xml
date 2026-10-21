@@ -9,7 +9,7 @@
     </parent>
     <artifactId>api-gateway</artifactId>
     <name>api-gateway</name>
-    <description>API Gateway</description>
+    <description>Единая точка входа для клиентов</description>
 
     <dependencies>
         <dependency>
@@ -24,9 +24,11 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
         </dependency>
+        <!-- общий Swagger UI для документации всех сервисов -->
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
     </dependencies>
 
