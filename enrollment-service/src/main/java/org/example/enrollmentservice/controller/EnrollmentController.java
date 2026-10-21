@@ -37,7 +37,7 @@ public class EnrollmentController {
         @ApiResponse(
             responseCode = "404", 
             description = "Студент или курс не найден в системе",
-            content = @Content(examples = @ExampleObject(value = "{\"error\": \"Not Found\", \"message\": \"Ресурс не найден в зависимом сервисе...\"}"))
+            content = @Content(examples = @ExampleObject(value = "{\"status\": 404, \"title\": \"Не найдено\", \"detail\": \"Ресурс не найден в зависимом сервисе: StudentClient\"}"))
         ),
         @ApiResponse(
             responseCode = "403",
@@ -50,7 +50,7 @@ public class EnrollmentController {
         @ApiResponse(
             responseCode = "502", 
             description = "Ошибка интеграции или сработал предохранитель Circuit Breaker",
-            content = @Content(examples = @ExampleObject(value = "{\"error\": \"Dependency Service Error\", \"message\": \"Сервис курсов временно недоступен. Сработал предохранитель...\"}"))
+            content = @Content(examples = @ExampleObject(value = "{\"status\": 502, \"title\": \"Сервис недоступен\", \"detail\": \"Сервис курсов (course-service) временно недоступен. Сработал предохранитель (Circuit Breaker).\"}"))
         )
     })
     public ResponseEntity<Enrollment> create(
