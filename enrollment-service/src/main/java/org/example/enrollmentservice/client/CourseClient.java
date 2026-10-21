@@ -1,5 +1,6 @@
 package org.example.enrollmentservice.client;
 
+import org.example.enrollmentservice.dto.CourseDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -8,5 +9,5 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface CourseClient {
 
     @GetMapping("/courses/{id}")
-    Object getCourseById(@PathVariable("id") Long id);
+    CourseDto getCourseById(@PathVariable("id") Long id);
 }
