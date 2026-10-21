@@ -39,6 +39,17 @@ POST /api/students -> 400 (45 мс)
 Swagger UI сервисов, фронт на `localhost:3000` и т. п. Запросы с других адресов браузер не пропустит (preflight → 403).
 Когда появится фронт на реальном адресе, его нужно добавить в `allowedOriginPatterns`.
 
+## Swagger всех сервисов
+
+Одна страница на gateway: http://localhost:8080/swagger-ui.html — сервис выбирается в списке справа сверху.
+
+- Gateway забирает документацию каждого сервиса по маршруту `/api-docs/<сервис>` → `/v3/api-docs` сервиса
+  (маршруты и список сервисов для Swagger UI — в `config-repo/api-gateway.yml`)
+- В документации адрес сервера — `http://localhost:8080/api`, поэтому кнопка **Try it out** отправляет запрос через gateway
+- Для этого gateway передаёт сервисам заголовки `X-Forwarded-*` (`trusted-proxies`), а сервисы их учитывают
+  (`server.forward-headers-strategy: framework` в общем `application.yml`)
+- Сервис должен быть запущен и виден в Eureka, иначе при его выборе Swagger покажет ошибку загрузки
+
 ## Проверка
 
 1. Запустить config-server, eureka-server, нужные сервисы, потом api-gateway.
