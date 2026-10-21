@@ -22,6 +22,7 @@
 Ссылки между таблицами разных сервисов — обычные поля `*_id` без внешних ключей, они проверяются через Feign.
 
 Пользователь БД создаётся один раз под `postgres`, скрипт в репозиторий не входит.
+Как создать базу и задать пароль (`DB_PASSWORD`) — в [config-server/DATABASE.md](config-server/DATABASE.md).
 
 ## Порядок запуска
 
@@ -29,3 +30,25 @@
 2. `eureka-server`
 3. остальные сервисы
 4. `api-gateway`
+
+Сборка всех модулей: `./mvnw package -DskipTests` (Windows: `mvnw.cmd`), запуск — из IDEA или `java -jar <модуль>/target/<модуль>-0.0.1-SNAPSHOT.jar`
+из корня проекта (config-server ищет папку `config-repo` рядом). Сервисы появляются в Eureka примерно через 30 секунд после старта.
+
+## Ссылки после запуска
+
+| Что | Адрес |
+|---|---|
+| Дашборд Eureka | http://localhost:8761 |
+| Swagger всех сервисов | http://localhost:8080/swagger-ui.html |
+| API через gateway | `http://localhost:8080/api/<students, courses, enrollments, certificates, ...>` |
+| Health сервиса | `http://localhost:<порт>/actuator/health` |
+| Состояние Circuit Breaker | http://localhost:8083/actuator/circuitbreakers |
+| Логи | `logs/<имя-сервиса>.log` |
+
+## Демо-сценарий
+
+1. `GET /api/students/1` и `GET /api/courses/1` — студент и курс есть
+2. `POST /api/enrollments?studentId=1&courseId=1` — `201`, enrollment-service проверил студента и курс через Feign и вызвал certificate-service
+3. Тот же запрос ещё раз — `409`, студент уже записан; `studentId=999` — `404`
+4. Выключить student-service и повторить запись несколько раз — `502` с сообщением fallback, в `/actuator/circuitbreakers` — `OPEN`
+5. Включить student-service — через ~30 секунд запись снова проходит, состояние — `CLOSED`
