@@ -2,6 +2,7 @@ package org.example.authservice.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.authservice.dto.AuthResponse;
 import org.example.authservice.dto.LoginRequest;
 import org.example.authservice.dto.RegisterRequest;
 import org.example.authservice.dto.UserDto;
@@ -28,11 +29,12 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final JwtService jwtService;
     // BCrypt: в базе лежит только хэш, сам пароль не восстановить
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Transactional
-    public UserDto register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request) {
         String email = request.email().trim().toLowerCase();
         if (userRepository.existsByEmail(email)) {
             throw new ConflictException("Пользователь с email " + email + " уже зарегистрирован");
@@ -46,10 +48,10 @@ public class AuthService {
         user.getRoles().add(studentRole);
         userRepository.save(user);
         log.info("Зарегистрирован пользователь {} (id {})", email, user.getId());
-        return UserDto.from(user);
+        return withToken(user);
     }
 
-    public UserDto login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request) {
         String email = request.email().trim().toLowerCase();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthorizedException("Неверный email или пароль"));
@@ -61,7 +63,7 @@ public class AuthService {
             throw new UnauthorizedException("Пользователь заблокирован");
         }
         log.info("Вход пользователя {} (id {})", email, user.getId());
-        return UserDto.from(user);
+        return withToken(user);
     }
 
     public List<UserDto> findAll() {
@@ -74,5 +76,10 @@ public class AuthService {
         return userRepository.findById(id)
                 .map(UserDto::from)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + id + " не найден"));
+    }
+
+    private AuthResponse withToken(User user) {
+        UserDto dto = UserDto.from(user);
+        return new AuthResponse(jwtService.createToken(dto), dto);
     }
 }

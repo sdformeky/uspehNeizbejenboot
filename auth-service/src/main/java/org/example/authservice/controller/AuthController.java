@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.authservice.dto.AuthResponse;
 import org.example.authservice.dto.LoginRequest;
 import org.example.authservice.dto.RegisterRequest;
 import org.example.authservice.dto.UserDto;
@@ -29,19 +30,19 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Регистрация", description = "Создаёт пользователя с ролью STUDENT. 409 — email уже занят")
-    public UserDto register(@Valid @RequestBody RegisterRequest request) {
+    @Operation(summary = "Регистрация", description = "Создаёт пользователя с ролью STUDENT и сразу выдаёт токен. 409 — email уже занят")
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Вход", description = "Проверяет email и пароль, возвращает пользователя. 401 — неверные данные")
-    public UserDto login(@Valid @RequestBody LoginRequest request) {
+    @Operation(summary = "Вход", description = "Проверяет email и пароль, возвращает токен и пользователя. 401 — неверные данные")
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
 
     @GetMapping("/users")
-    @Operation(summary = "Список пользователей")
+    @Operation(summary = "Список пользователей", description = "Только ADMIN (проверяет api-gateway)")
     public List<UserDto> getAll() {
         return authService.findAll();
     }
