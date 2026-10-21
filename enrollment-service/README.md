@@ -12,11 +12,13 @@
 | Метод | Путь | Описание | Ответ |
 |---|---|---|---|
 | POST | `/enrollments?studentId=1&courseId=1` | Записать студента на курс | `201`, `404` (нет студента/курса), `409` (уже записан), `502` (сосед недоступен) |
+| GET | `/enrollments?studentId=1` | Записи (все или одного студента) | `200` |
 
 Через api-gateway: `POST http://localhost:8080/api/enrollments?studentId=1&courseId=1`.
 
 Порядок: проверка студента в student-service и курса в course-service (Feign, по имени из Eureka) →
-сохранение записи → вызов certificate-service. Если certificate-service недоступен, запись всё равно создаётся, ошибка пишется в лог.
+сохранение записи → вызов certificate-service → уведомление в notification-service (если профиль студента связан с пользователем сайта).
+Если certificate- или notification-service недоступен, запись всё равно создаётся, ошибка пишется в лог.
 
 ## Circuit Breaker
 
