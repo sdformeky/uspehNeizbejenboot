@@ -19,13 +19,16 @@ Spring Boot только раздаёт их на порту `3000`. Все да
 |---|---|---|
 | Вход / регистрация | auth-service | `POST /api/auth/login`, `POST /api/auth/register` |
 | Курсы | course-service, enrollment-service | `GET /api/courses`, `POST /api/enrollments?studentId=&courseId=` |
-| Мои курсы | student-, enrollment-, certificate-service | `GET/POST /api/students`, `GET /api/enrollments?studentId=`, `GET /api/certificates?enrollmentId=` |
+| Страница курса `#course/<id>` | course-service | `GET /api/courses/{id}/page`, `POST .../posts` (преподаватель), `POST .../reviews` |
+| Мои курсы | student-, enrollment-, certificate-service | `GET /api/students?userId=`, `POST /api/students`, `GET /api/enrollments?studentId=`, `GET /api/certificates?enrollmentId=` |
 | Поддержка | support-service | `GET /api/support/faq`, `GET/POST /api/support/tickets`, сообщения и статус |
 | Уведомления (колокольчик) | notification-service | `GET /api/notifications?userId=`, `unread-count`, `PATCH .../read` |
-| Студенты | student-service | полный CRUD `/api/students` |
+| Студенты (только ADMIN) | student-service | полный CRUD `/api/students` |
 | Проверка сертификата | certificate-service | `GET /api/certificates/{номер}` |
 
-Вошедший пользователь хранится в `localStorage` браузера. Профиль студента связан с пользователем
-полем `userId` в student-service.
+После входа сайт хранит в `localStorage` токен (JWT) и пользователя и отправляет токен в каждом запросе
+(`Authorization: Bearer ...`). Права проверяет api-gateway — сайт только прячет то, что пользователю всё равно
+недоступно (раздел «Студенты» для не-админа, форму поста для не-преподавателя). Если токен истёк — сайт выходит из аккаунта.
+Профиль студента связан с пользователем полем `userId` в student-service.
 
 Если сервис выключен, раздел покажет понятную ошибку, остальные продолжат работать.
