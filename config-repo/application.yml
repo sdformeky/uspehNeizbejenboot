@@ -51,3 +51,9 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+
+# JWT: auth-service подписывает токен при входе, api-gateway проверяет подпись этим же секретом.
+# Значение по умолчанию — только для учебного стенда; на сервере задать переменную окружения JWT_SECRET (не короче 32 символов)
+jwt:
+  secret: ${JWT_SECRET:oSfkuFuby1bqZ4L5RiT8GC8eHviXN1cih8Q2REvpqZyBZdEq}
+  ttl-hours: 12
