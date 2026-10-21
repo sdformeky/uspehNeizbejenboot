@@ -32,6 +32,12 @@ public class StudentService {
                 .toList();
     }
 
+    public List<StudentDto> findByUserId(Long userId) {
+        return studentRepository.findByUserId(userId).stream()
+                .map(StudentDto::from)
+                .toList();
+    }
+
     public StudentDto findById(Long id) {
         return StudentDto.from(getStudent(id));
     }
