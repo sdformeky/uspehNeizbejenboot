@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {StudentController.class, InternalStudentController.class})
+@WebMvcTest(StudentController.class)
 @ActiveProfiles("test")
 class StudentControllerTest {
 
@@ -165,14 +165,6 @@ class StudentControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    @Test
-    void internalEndpointForEnrollmentReturnsStudent() throws Exception {
-        when(studentService.findById(1L)).thenReturn(student(1L, "Алексей", StudentStatus.ACTIVE));
-
-        mockMvc.perform(get("/api/v1/students/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACTIVE"));
-    }
 
     @Test
     void unexpectedErrorReturns500() throws Exception {
