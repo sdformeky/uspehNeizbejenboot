@@ -9,7 +9,7 @@
     </parent>
     <artifactId>eureka-server</artifactId>
     <name>eureka-server</name>
-    <description>Eureka Server</description>
+    <description>Реестр сервисов (service discovery)</description>
 
     <dependencies>
         <dependency>
