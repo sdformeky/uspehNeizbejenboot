@@ -14,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/enrollments")
 @RequiredArgsConstructor
@@ -56,5 +58,14 @@ public class EnrollmentController {
     ) {
         Enrollment created = enrollmentService.createEnrollment(studentId, courseId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @GetMapping
+    @Operation(summary = "Записи на курсы", description = "Все записи или записи одного студента (?studentId=)")
+    public List<Enrollment> getAll(
+            @Parameter(description = "ID студента", example = "1")
+            @RequestParam(required = false) Long studentId
+    ) {
+        return enrollmentService.findAll(studentId);
     }
 }
