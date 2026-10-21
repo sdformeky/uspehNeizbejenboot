@@ -32,6 +32,12 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.FORBIDDEN, "Нет доступа", e.getMessage());
     }
 
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ProblemDetail handleUnavailable(ServiceUnavailableException e, HttpServletRequest request) {
+        log.warn("503 {} {}: {}", request.getMethod(), request.getRequestURI(), e.getMessage());
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "Сервис недоступен", e.getMessage());
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ProblemDetail handleConflict(ConflictException e, HttpServletRequest request) {
         log.warn("409 {} {}: {}", request.getMethod(), request.getRequestURI(), e.getMessage());

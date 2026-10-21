@@ -1,5 +1,6 @@
 package org.example.courseservice.service;
 
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.courseservice.client.EnrollmentClient;
@@ -18,6 +19,7 @@ import org.example.courseservice.dto.StudentShortDto;
 import org.example.courseservice.exception.ConflictException;
 import org.example.courseservice.exception.ForbiddenException;
 import org.example.courseservice.exception.NotFoundException;
+import org.example.courseservice.exception.ServiceUnavailableException;
 import org.example.courseservice.model.Course;
 import org.example.courseservice.model.CourseModule;
 import org.example.courseservice.model.CoursePost;
@@ -118,14 +120,22 @@ public class CoursePageService {
         if (currentUserId == null) {
             throw new ForbiddenException("Нужно войти");
         }
-        List<StudentShortDto> profile = studentClient.getByUserId(currentUserId);
-        if (profile.isEmpty()) {
-            throw new ForbiddenException("Сначала заполните профиль студента");
+        List<StudentShortDto> profile;
+        List<EnrollmentShortDto> enrollments;
+        try {
+            profile = studentClient.getByUserId(currentUserId);
+            if (profile.isEmpty()) {
+                throw new ForbiddenException("Сначала заполните профиль студента");
+            }
+            enrollments = enrollmentClient.getByStudent(profile.get(0).id());
+        } catch (FeignException e) {
+            log.warn("Не удалось проверить запись на курс {}: {}", courseId, e.getMessage());
+            throw new ServiceUnavailableException("Не удалось проверить запись на курс: сервис студентов или записей недоступен, попробуйте позже");
         }
         StudentShortDto student = profile.get(0);
 
         boolean enrolled = false;
-        for (EnrollmentShortDto e : enrollmentClient.getByStudent(student.id())) {
+        for (EnrollmentShortDto e : enrollments) {
             if (e.courseId().equals(courseId)) {
                 enrolled = true;
             }
