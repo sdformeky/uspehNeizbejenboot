@@ -144,7 +144,7 @@ public class CoursePageService {
         review.setComment(request.comment() != null ? request.comment().trim() : null);
         reviewRepository.save(review);
         log.info("Отзыв на курс {} от студента {}: {}/5", courseId, student.id(), request.rating());
-        return new ReviewDto(review.getId(), student.id(), student.lastName() + " " + student.firstName(),
+        return new ReviewDto(review.getId(), student.id(), shortName(student),
                 review.getRating(), review.getComment(), review.getCreatedAt());
     }
 
@@ -153,11 +153,16 @@ public class CoursePageService {
                 .orElseThrow(() -> new NotFoundException("Курс с id " + id + " не найден"));
     }
 
+    // «Ваня И.» — имя и первая буква фамилии
+    private String shortName(StudentShortDto s) {
+        return s.firstName() + " " + s.lastName().charAt(0) + ".";
+    }
+
     private Map<Long, String> studentNames() {
         Map<Long, String> names = new HashMap<>();
         try {
             for (StudentShortDto s : studentClient.getAll()) {
-                names.put(s.id(), s.firstName() + " " + s.lastName().charAt(0) + ".");
+                names.put(s.id(), shortName(s));
             }
         } catch (Exception e) {
             log.warn("student-service недоступен, имена в отзывах не показываем: {}", e.getMessage());
