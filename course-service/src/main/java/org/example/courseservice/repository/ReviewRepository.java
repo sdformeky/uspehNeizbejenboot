@@ -9,5 +9,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     List<Review> findByCourseId(Long courseId);
 
+    List<Review> findByCourseIdOrderByCreatedAtDesc(Long courseId);
+
     boolean existsByCourseIdAndStudentId(Long courseId, Long studentId);
 }
