@@ -14,7 +14,7 @@
 | GET | `/courses` | Список всех курсов |
 | GET | `/courses/{id}` | Курс по id, `404` если не найден |
 
-Через api-gateway: `http://localhost:8080/courses`. Swagger: `http://localhost:8082/swagger-ui.html`.
+Через api-gateway: `http://localhost:8080/api/courses`. Swagger: `http://localhost:8082/swagger-ui.html` или общий на gateway — `http://localhost:8080/swagger-ui.html`.
 
 Курс отдаётся как `CourseDto`: поля курса, категория, преподаватель и теги.
 
