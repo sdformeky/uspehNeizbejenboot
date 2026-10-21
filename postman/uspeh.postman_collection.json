@@ -383,7 +383,7 @@
     },
     {
       "name": "1. Демо-сценарий",
-      "description": "Для защиты, по порядку: администратор создаёт и публикует курс → студент регистрируется, заполняет профиль и записывается → видит свою запись, сертификат и уведомление. Папка самодостаточна.",
+      "description": "Для защиты, по порядку: администратор создаёт и публикует курс → студент регистрируется, заполняет профиль, записывается на курс с уроками и проходит все уроки → курс завершён, выпущен сертификат, пришли уведомления. Папка самодостаточна.",
       "item": [
         {
           "name": "1. Каталог курсов (без входа)",
@@ -681,12 +681,12 @@
           ]
         },
         {
-          "name": "7. Студент записывается на курс",
+          "name": "7. Студент записывается на курс с уроками",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/enrollments?studentId={{demoStudentId}}&courseId={{demoCourseId}}",
+              "raw": "{{baseUrl}}/enrollments?studentId={{demoStudentId}}&courseId={{learnCourseId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -700,7 +700,7 @@
                 },
                 {
                   "key": "courseId",
-                  "value": "{{demoCourseId}}"
+                  "value": "{{learnCourseId}}"
                 }
               ]
             },
@@ -714,7 +714,7 @@
                 }
               ]
             },
-            "description": "enrollment-service через Feign проверяет студента и курс, сохраняет запись, выпускает сертификат и шлёт уведомление."
+            "description": "enrollment-service через Feign проверяет студента (ACTIVE), курс (PUBLISHED) и места, сохраняет запись и шлёт уведомление. Сертификата пока нет."
           },
           "event": [
             {
@@ -736,7 +736,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/enrollments?studentId={{demoStudentId}}&courseId={{demoCourseId}}",
+              "raw": "{{baseUrl}}/enrollments?studentId={{demoStudentId}}&courseId={{learnCourseId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -750,7 +750,7 @@
                 },
                 {
                   "key": "courseId",
-                  "value": "{{demoCourseId}}"
+                  "value": "{{learnCourseId}}"
                 }
               ]
             },
@@ -778,7 +778,142 @@
           ]
         },
         {
-          "name": "9. Мои записи",
+          "name": "9. Сертификата до прохождения нет",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/certificates?enrollmentId={{demoEnrollmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates"
+              ],
+              "query": [
+                {
+                  "key": "enrollmentId",
+                  "value": "{{demoEnrollmentId}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Список пуст\", () => pm.expect(pm.response.json()).to.be.an(\"array\").that.is.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Уроки курса",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/courses/{{learnCourseId}}/lessons/ids",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "courses",
+                "{{learnCourseId}}",
+                "lessons",
+                "ids"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"В курсе есть уроки\", () => pm.expect(pm.response.json()).to.be.an(\"array\").that.is.not.empty);",
+                  "pm.collectionVariables.set(\"lessonIds\", JSON.stringify(pm.response.json()));",
+                  "pm.collectionVariables.set(\"lessonIndex\", 0);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Студент проходит урок (повторяется до последнего)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments/{{demoEnrollmentId}}/lessons/{{lessonId}}/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments",
+                "{{demoEnrollmentId}}",
+                "lessons",
+                "{{lessonId}}",
+                "complete"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Запрос сам повторяется для каждого урока курса. После последнего урока запись — COMPLETED, выпускается сертификат."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"lessonIds\"));",
+                  "pm.collectionVariables.set(\"lessonId\", ids[Number(pm.collectionVariables.get(\"lessonIndex\"))]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
+                  "const ids = JSON.parse(pm.collectionVariables.get(\"lessonIds\"));",
+                  "const next = Number(pm.collectionVariables.get(\"lessonIndex\")) + 1;",
+                  "const e = pm.response.json();",
+                  "pm.test(\"Прогресс \" + e.progress + \"%\", () => pm.expect(e.progress).to.eql(Math.floor(next * 100 / ids.length)));",
+                  "pm.collectionVariables.set(\"lessonIndex\", next);",
+                  "if (next < ids.length) {",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.test(\"Курс завершён\", () => pm.expect(e.status).to.eql(\"COMPLETED\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Мои записи",
           "request": {
             "method": "GET",
             "header": [],
@@ -815,14 +950,14 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Есть запись на демо-курс\", () => pm.expect(pm.response.json().map(e => e.courseId)).to.include(Number(pm.collectionVariables.get(\"demoCourseId\"))));"
+                  "pm.test(\"Запись завершена\", () => pm.expect(pm.response.json().find(e => e.id === Number(pm.collectionVariables.get(\"demoEnrollmentId\"))).status).to.eql(\"COMPLETED\"));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "10. Сертификат по записи",
+          "name": "13. Сертификат выпущен",
           "request": {
             "method": "GET",
             "header": [],
@@ -861,7 +996,7 @@
           ]
         },
         {
-          "name": "11. Проверка сертификата по номеру (без входа)",
+          "name": "14. Проверка сертификата по номеру (без входа)",
           "request": {
             "method": "GET",
             "header": [],
@@ -893,7 +1028,7 @@
           ]
         },
         {
-          "name": "12. Уведомление о записи",
+          "name": "15. Уведомления студента",
           "request": {
             "method": "GET",
             "header": [],
@@ -930,7 +1065,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Есть уведомление о записи\", () => pm.expect(JSON.stringify(pm.response.json())).to.include(\"записаны\"));"
+                  "const text = JSON.stringify(pm.response.json());",
+                  "pm.test(\"О записи\", () => pm.expect(text).to.include(\"записаны\"));",
+                  "pm.test(\"О завершении курса\", () => pm.expect(text).to.include(\"Курс пройден\"));"
                 ]
               }
             }
@@ -2195,6 +2332,127 @@
           ]
         },
         {
+          "name": "Пройденные уроки",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments/{{enrollmentId}}/lessons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments",
+                "{{enrollmentId}}",
+                "lessons"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Урок не из этого курса — 404",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments/{{enrollmentId}}/lessons/999999/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments",
+                "{{enrollmentId}}",
+                "lessons",
+                "999999",
+                "complete"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Ошибка в формате Problem Details\", () => pm.expect(pm.response.json().status).to.eql(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Пройденные уроки любой записи — администратор",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/enrollments/{{enrollmentId}}/lessons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "enrollments",
+                "{{enrollmentId}}",
+                "lessons"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Администратору можно смотреть любые записи"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Статус 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Все записи — администратор",
           "request": {
             "method": "GET",
@@ -2689,6 +2947,10 @@
     {
       "key": "courseId",
       "value": "1"
+    },
+    {
+      "key": "learnCourseId",
+      "value": "5"
     }
   ]
 }
