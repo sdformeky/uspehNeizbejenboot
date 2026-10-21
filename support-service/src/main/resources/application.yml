@@ -6,3 +6,10 @@ spring:
     name: support-service
   config:
     import: optional:configserver:http://localhost:8888
+  # FAQ из data.sql — после того, как Hibernate создаст таблицы
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+  jpa:
+    defer-datasource-initialization: true
