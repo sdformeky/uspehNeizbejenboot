@@ -7,6 +7,7 @@ import org.example.supportservice.dto.MessageRequest;
 import org.example.supportservice.dto.TicketDto;
 import org.example.supportservice.dto.TicketRequest;
 import org.example.supportservice.exception.ConflictException;
+import org.example.supportservice.exception.ForbiddenException;
 import org.example.supportservice.exception.NotFoundException;
 import org.example.supportservice.model.FaqArticle;
 import org.example.supportservice.model.Ticket;
@@ -51,12 +52,15 @@ public class SupportService {
         return tickets.stream().map(TicketDto::from).toList();
     }
 
-    public TicketDto findTicket(Long id) {
-        return TicketDto.from(getTicket(id));
+    public TicketDto findTicket(Long id, Long currentUserId, String roles) {
+        Ticket ticket = getTicket(id);
+        checkAccess(ticket, currentUserId, roles);
+        return TicketDto.from(ticket);
     }
 
     @Transactional
-    public TicketDto createTicket(TicketRequest request) {
+    public TicketDto createTicket(TicketRequest request, Long currentUserId, String roles) {
+        checkAuthor(request.authorId(), currentUserId, roles);
         Ticket ticket = new Ticket();
         ticket.setAuthorId(request.authorId());
         ticket.setSubject(request.subject().trim());
@@ -70,8 +74,8 @@ public class SupportService {
         return TicketDto.from(ticket);
     }
 
-    public List<MessageDto> findMessages(Long ticketId) {
-        getTicket(ticketId);
+    public List<MessageDto> findMessages(Long ticketId, Long currentUserId, String roles) {
+        checkAccess(getTicket(ticketId), currentUserId, roles);
         return messageRepository.findByTicketIdOrderByCreatedAtAsc(ticketId).stream()
                 .filter(m -> !m.isInternal())   // внутренние заметки поддержки пользователю не показываем
                 .map(MessageDto::from)
@@ -79,8 +83,10 @@ public class SupportService {
     }
 
     @Transactional
-    public MessageDto addMessage(Long ticketId, MessageRequest request) {
+    public MessageDto addMessage(Long ticketId, MessageRequest request, Long currentUserId, String roles) {
         Ticket ticket = getTicket(ticketId);
+        checkAccess(ticket, currentUserId, roles);
+        checkAuthor(request.authorId(), currentUserId, roles);
         if (ticket.getStatus() == TicketStatus.CLOSED) {
             throw new ConflictException("Обращение " + ticketId + " закрыто, писать в него нельзя");
         }
@@ -93,8 +99,9 @@ public class SupportService {
     }
 
     @Transactional
-    public TicketDto changeStatus(Long ticketId, TicketStatus status) {
+    public TicketDto changeStatus(Long ticketId, TicketStatus status, Long currentUserId, String roles) {
         Ticket ticket = getTicket(ticketId);
+        checkAccess(ticket, currentUserId, roles);
         ticket.setStatus(status);
         if (status == TicketStatus.RESOLVED || status == TicketStatus.CLOSED) {
             ticket.setClosedAt(LocalDateTime.now());
@@ -103,6 +110,25 @@ public class SupportService {
         }
         log.info("Обращение {}: статус {}", ticketId, status);
         return TicketDto.from(ticket);
+    }
+
+    // Заголовки X-User-Id / X-User-Roles ставит api-gateway по токену.
+    // Обращение видит его автор и сотрудники поддержки (SUPPORT, ADMIN)
+    private boolean isStaff(String roles) {
+        return roles != null && (roles.contains("SUPPORT") || roles.contains("ADMIN"));
+    }
+
+    private void checkAccess(Ticket ticket, Long currentUserId, String roles) {
+        if (currentUserId != null && !isStaff(roles) && !ticket.getAuthorId().equals(currentUserId)) {
+            throw new ForbiddenException("Это чужое обращение");
+        }
+    }
+
+    // писать можно только от своего имени
+    private void checkAuthor(Long authorId, Long currentUserId, String roles) {
+        if (currentUserId != null && !isStaff(roles) && !authorId.equals(currentUserId)) {
+            throw new ForbiddenException("Писать можно только от своего имени");
+        }
     }
 
     private Ticket getTicket(Long id) {

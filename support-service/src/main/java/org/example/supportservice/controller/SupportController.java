@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -48,33 +49,43 @@ public class SupportController {
 
     @GetMapping("/tickets/{id}")
     @Operation(summary = "Обращение по id")
-    public TicketDto getTicket(@PathVariable Long id) {
-        return supportService.findTicket(id);
+    public TicketDto getTicket(@PathVariable Long id,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        return supportService.findTicket(id, currentUserId, roles);
     }
 
     @PostMapping("/tickets")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Создать обращение", description = "Текст обращения сохраняется первым сообщением")
-    public TicketDto createTicket(@Valid @RequestBody TicketRequest request) {
-        return supportService.createTicket(request);
+    public TicketDto createTicket(@Valid @RequestBody TicketRequest request,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        return supportService.createTicket(request, currentUserId, roles);
     }
 
     @GetMapping("/tickets/{id}/messages")
     @Operation(summary = "Переписка по обращению")
-    public List<MessageDto> getMessages(@PathVariable Long id) {
-        return supportService.findMessages(id);
+    public List<MessageDto> getMessages(@PathVariable Long id,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        return supportService.findMessages(id, currentUserId, roles);
     }
 
     @PostMapping("/tickets/{id}/messages")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Написать в обращение", description = "409 — обращение закрыто")
-    public MessageDto addMessage(@PathVariable Long id, @Valid @RequestBody MessageRequest request) {
-        return supportService.addMessage(id, request);
+    public MessageDto addMessage(@PathVariable Long id, @Valid @RequestBody MessageRequest request,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        return supportService.addMessage(id, request, currentUserId, roles);
     }
 
     @PatchMapping("/tickets/{id}/status")
     @Operation(summary = "Сменить статус обращения")
-    public TicketDto changeStatus(@PathVariable Long id, @Valid @RequestBody StatusRequest request) {
-        return supportService.changeStatus(id, request.status());
+    public TicketDto changeStatus(@PathVariable Long id, @Valid @RequestBody StatusRequest request,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+                                @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        return supportService.changeStatus(id, request.status(), currentUserId, roles);
     }
 }
