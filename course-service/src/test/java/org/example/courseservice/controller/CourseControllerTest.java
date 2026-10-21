@@ -5,6 +5,7 @@ import org.example.courseservice.dto.CourseRequest;
 import org.example.courseservice.exception.ConflictException;
 import org.example.courseservice.exception.NotFoundException;
 import org.example.courseservice.model.CourseStatus;
+import org.example.courseservice.service.CoursePageService;
 import org.example.courseservice.service.CourseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,10 @@ class CourseControllerTest {
 
     @MockitoBean
     private CourseService courseService;
+
+    // контроллеру нужен и сервис страницы курса — в этих тестах он не используется
+    @MockitoBean
+    private CoursePageService coursePageService;
 
     private static CourseDto course(Long id, String title, CourseStatus status) {
         return new CourseDto(id, title, null, new BigDecimal("14990.00"), 20, status,

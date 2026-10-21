@@ -10,7 +10,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.courseservice.dto.CourseDto;
+import org.example.courseservice.dto.CoursePageDto;
+import org.example.courseservice.dto.PostRequest;
+import org.example.courseservice.dto.ReviewRequest;
 import org.example.courseservice.dto.CourseRequest;
+import org.example.courseservice.service.CoursePageService;
 import org.example.courseservice.service.CourseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -20,6 +24,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +38,7 @@ import java.util.List;
 public class CourseController {
 
     private final CourseService courseService;
+    private final CoursePageService coursePageService;
 
     @GetMapping
     @Operation(summary = "Список всех курсов", description = "Все курсы в любом статусе, отсортированные по id")
@@ -54,7 +60,7 @@ public class CourseController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Создать курс", description = "Если статус не передан, курс создаётся черновиком (DRAFT)")
+    @Operation(summary = "Создать курс", description = "Если статус не передан, курс создаётся черновиком (DRAFT). Только ADMIN (проверяет api-gateway)")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Курс создан"),
             @ApiResponse(responseCode = "400", description = "Ошибка валидации: в поле errors — сообщение по каждому полю",
@@ -67,7 +73,7 @@ public class CourseController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Обновить курс", description = "Полная замена: поля, которые не переданы, станут пустыми")
+    @Operation(summary = "Обновить курс", description = "Полная замена: поля, которые не переданы, станут пустыми. Только ADMIN (проверяет api-gateway)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Курс обновлён"),
             @ApiResponse(responseCode = "400", description = "Ошибка валидации", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
@@ -81,7 +87,7 @@ public class CourseController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Удалить курс", description = "Нельзя удалить курс, у которого есть модули, отзывы или вебинары")
+    @Operation(summary = "Удалить курс", description = "Нельзя удалить курс, у которого есть модули, отзывы или вебинары. Только ADMIN (проверяет api-gateway)")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Курс удалён"),
             @ApiResponse(responseCode = "404", description = "Курс не найден", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
@@ -90,5 +96,46 @@ public class CourseController {
     })
     public void delete(@Parameter(description = "id курса", example = "1") @PathVariable Long id) {
         courseService.delete(id);
+    }
+
+    @GetMapping("/{id}/page")
+    @Operation(summary = "Страница курса",
+            description = "Курс, преподаватель, программа (модули и уроки), вебинары, посты и отзывы со средней оценкой")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Страница курса"),
+            @ApiResponse(responseCode = "404", description = "Курс не найден", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    public CoursePageDto getPage(@Parameter(description = "id курса", example = "1") @PathVariable Long id) {
+        return coursePageService.getPage(id);
+    }
+
+    @PostMapping("/{id}/posts")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Опубликовать пост курса", description = "Только INSTRUCTOR или ADMIN (проверяет api-gateway)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Пост опубликован"),
+            @ApiResponse(responseCode = "400", description = "Ошибка валидации", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Курс не найден", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    public CoursePageDto.PostDto addPost(@Parameter(description = "id курса", example = "1") @PathVariable Long id,
+                                         @Valid @RequestBody PostRequest request) {
+        return coursePageService.addPost(id, request);
+    }
+
+    @PostMapping("/{id}/reviews")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Оставить отзыв", description = "Только записанный на курс студент, один отзыв на курс")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Отзыв сохранён"),
+            @ApiResponse(responseCode = "400", description = "Оценка не от 1 до 5", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "403", description = "Нет профиля студента или не записан на курс",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409", description = "Отзыв уже оставлен", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    public CoursePageDto.ReviewDto addReview(@Parameter(description = "id курса", example = "1") @PathVariable Long id,
+                                             @Valid @RequestBody ReviewRequest request,
+                                             @Parameter(hidden = true)
+                                             @RequestHeader(value = "X-User-Id", required = false) Long currentUserId) {
+        return coursePageService.addReview(id, request, currentUserId);
     }
 }
