@@ -17,7 +17,7 @@
 | PUT | `/students/{id}` | Обновить студента целиком | `200`, `400`, `404`, `409` |
 | DELETE | `/students/{id}` | Удалить студента вместе с его избранным | `204`, `404` |
 
-Через api-gateway: `http://localhost:8080/students`. Swagger: `http://localhost:8081/swagger-ui.html`.
+Через api-gateway: `http://localhost:8080/api/students`. Swagger: `http://localhost:8081/swagger-ui.html` или общий на gateway — `http://localhost:8080/swagger-ui.html`.
 
 Тело запроса POST/PUT (`StudentRequest`):
 
