@@ -25,6 +25,22 @@
 Пользователь БД создаётся один раз под `postgres`, скрипт в репозиторий не входит.
 Как создать базу и задать пароль (`DB_PASSWORD`) — в [config-server/DATABASE.md](config-server/DATABASE.md).
 
+## Запуск с нуля
+
+Нужно: JDK 17+ (проверено на 24), PostgreSQL 13+ (лучше 15+), Maven ставить не надо — в проекте есть `mvnw`.
+
+1. Создать базу `uspeh_db` и пользователя `student_app` — SQL в [config-server/DATABASE.md](config-server/DATABASE.md).
+2. Задать пароль БД в переменной окружения `DB_PASSWORD` (в репозитории его нет). Windows, PowerShell:
+
+   ```powershell
+   [Environment]::SetEnvironmentVariable('DB_PASSWORD', '<пароль>', 'User')
+   ```
+
+   После этого перезапустить IntelliJ IDEA и терминалы — переменные подхватываются только при старте.
+3. Собрать: `mvnw.cmd package -DskipTests` (Linux/macOS: `./mvnw package -DskipTests`).
+4. Запустить в порядке из раздела ниже. Таблицы создаст Hibernate, тестовые данные (3 группы, 5 студентов,
+   3 категории, 5 тегов, 2 преподавателя, 5 курсов) загрузятся из `data.sql` при старте student- и course-service.
+
 ## Порядок запуска
 
 1. `config-server`
@@ -48,6 +64,74 @@ Gateway в первые ~30 секунд после своего старта м
 | Health сервиса | `http://localhost:<порт>/actuator/health` |
 | Состояние Circuit Breaker | http://localhost:8083/actuator/circuitbreakers |
 | Логи | `logs/<имя-сервиса>.log` |
+
+## API через gateway
+
+Все запросы — на `http://localhost:8080/api/...`, gateway убирает `/api` и передаёт запрос сервису.
+CORS открыт для любого порта `localhost` и `127.0.0.1`. Ошибки — в формате
+[Problem Details](https://www.rfc-editor.org/rfc/rfc9457) (`title`, `detail`, `status`, при ошибке валидации — `errors` по полям).
+
+Кроме открытых запросов нужен токен: `Authorization: Bearer <token>` из `POST /api/auth/login` или `/register`
+(подробнее — раздел «Вход и права» ниже). Без токена — `401`, без нужной роли — `403`.
+
+| Сервис | Метод и путь | Кому доступно |
+|---|---|---|
+| auth-service | `POST /api/auth/register`, `POST /api/auth/login` | всем — выдают токен |
+| | `GET /api/auth/users` | ADMIN |
+| course-service | `GET /api/courses`, `GET /api/courses/{id}`, `GET /api/courses/{id}/lessons/ids` | всем |
+| | `POST /api/courses`, `PUT /api/courses/{id}`, `DELETE /api/courses/{id}` | ADMIN |
+| student-service | `POST /api/students` | вошедшему — только свой профиль (`userId` = свой); ADMIN — любой |
+| | `GET /api/students/{id}` | вошедшему |
+| | `GET /api/students`, `PUT /api/students/{id}`, `DELETE /api/students/{id}` | ADMIN |
+| enrollment-service | `POST /api/enrollments?studentId=&courseId=` | вошедшему — только свой профиль; параметры в URL, не в теле |
+| | `GET /api/enrollments?studentId=` / `GET /api/enrollments` | свои / все — ADMIN |
+| | `POST /api/enrollments/{id}/lessons/{lessonId}/complete`, `GET /api/enrollments/{id}/lessons` | вошедшему — только своя запись: отметить урок пройденным / пройденные уроки |
+| certificate-service | `GET /api/certificates?enrollmentId=`, `GET /api/certificates/{номер}` | всем — проверка подлинности |
+| notification-service | `GET /api/notifications?userId=`, `GET /api/notifications/unread-count?userId=` | только свои |
+
+Подробности, тела запросов и коды ответов — в README сервисов и в Swagger.
+
+## Как устроено прохождение курса
+
+1. Запись на курс — только для активного студента, на опубликованный курс и при свободных местах; иначе `409`.
+2. Студент отмечает уроки пройденными (на сайте — кнопка «Пройден» на странице курса) — прогресс = пройдено / всего уроков.
+3. После последнего урока запись становится `COMPLETED`, certificate-service выпускает сертификат с номером,
+   notification-service присылает уведомление. Сертификат можно проверить по номеру без входа.
+
+## Postman
+
+Коллекция и окружение — в папке [`postman/`](postman/):
+
+1. Postman → Import → оба файла из `postman/`.
+2. Справа вверху выбрать окружение **uspeh — localhost**.
+3. Запустить папку **0. Вход и права**: вход администратора (демо-аккаунт), регистрация нового студента и проверки
+   `401`/`403`. Токены сохраняются в переменные коллекции, остальные запросы подставляют их сами.
+4. Папка **1. Демо-сценарий** — для защиты, по порядку: администратор создаёт и публикует курс → студент
+   регистрируется, заполняет профиль и записывается на курс с уроками (`learnCourseId`, по умолчанию 5) →
+   повторная запись (`409`) → сертификата пока нет → студент проходит все уроки (запрос сам повторяется для
+   каждого урока, прогресс растёт до 100%) → курс завершён, сертификат выпущен и проверяется по номеру,
+   пришли уведомления о записи и о завершении. Папка самодостаточна.
+5. Остальные папки — по сервисам: успешные запросы и ошибки (`400`, `401`, `403`, `404`, `409`). Каждый прогон
+   регистрирует нового студента и создаёт свои данные, поэтому коллекцию можно гонять сколько угодно раз.
+   В каждом запросе есть автотесты — вкладка Test Results.
+
+Прогнать всю коллекцию из консоли (нужен Node.js):
+
+```bash
+npx newman run postman/uspeh.postman_collection.json -e postman/uspeh.postman_environment.json
+```
+
+## Частые проблемы
+
+| Симптом | Причина и что делать |
+|---|---|
+| config-server: `Port 8888 was already in use` | Порт занят другой программой (например, Jupyter Notebook). Закрыть её или запустить config-server на другом порту и передать его сервисам: `--server.port=8889` и `--spring.config.import=optional:configserver:http://localhost:8889` |
+| `password authentication failed for user "student_app"` | Не задан или неверный `DB_PASSWORD`; после изменения перезапустить IDEA |
+| `Failed to configure a DataSource` | config-server не запущен или запущен не из корня проекта (не видит `config-repo`) |
+| Gateway отвечает `503` | Сервис ещё не зарегистрировался в Eureka — подождать ~30 секунд |
+| `401` «Нужно войти» / «Сессия недействительна» | Нет токена или он истёк (12 часов) — войти заново, в Postman — перезапустить папку «0. Вход и права» |
+| `403` «Доступно только администратору» | Запрос требует роль ADMIN — войти как `admin@uspeh.ru` |
+| Запись на курс отвечает `502` | student- или course-service недоступен, сработал circuit breaker — запустить сервис и подождать |
 
 ## Демо-сценарий
 
