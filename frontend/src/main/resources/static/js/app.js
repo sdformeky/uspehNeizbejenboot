@@ -11,6 +11,8 @@ let students = [];              // все студенты (student-service)
 let editingStudent = null;      // студент, которого сейчас редактируем на странице «Студенты»
 let selectedTicketId = null;    // открытое обращение на странице «Поддержка»
 let coursePage = null;          // данные открытой страницы курса
+let myEnrollment = null;        // запись текущего студента на открытый курс (enrollment-service)
+let completedLessons = [];      // id пройденных уроков в этой записи
 
 const ENROLLMENT_STATUS = { ACTIVE: 'Учится', COMPLETED: 'Завершён', CANCELLED: 'Отменён' };
 const TICKET_STATUS = { OPEN: 'Открыто', IN_PROGRESS: 'В работе', RESOLVED: 'Решено', CLOSED: 'Закрыто' };
@@ -317,8 +319,8 @@ async function loadCourses() {
     list.innerHTML = html || '<p class="hint">Курсов пока нет.</p>';
 }
 
-// Запись: enrollment-service сам проверит студента и курс через Feign,
-// выпустит сертификат (certificate-service) и пришлёт уведомление (notification-service)
+// Запись: enrollment-service сам проверит студента и курс через Feign и пришлёт уведомление (notification-service).
+// Сертификат выдаётся позже — когда пройдены все уроки курса
 async function enroll(courseId) {
     if (!currentUser) {
         showMessage('Чтобы записаться, войдите или зарегистрируйтесь.', true);
@@ -344,8 +346,11 @@ async function enroll(courseId) {
         } else if (coursePage) {
             title = coursePage.course.title;
         }
-        showMessage('Вы записаны на курс «' + title + '». Сертификат — в разделе «Мои курсы».');
+        showMessage('Вы записаны на курс «' + title + '». Отмечайте уроки на странице курса — после последнего выдадим сертификат.');
         updateBell();
+        if (coursePage && coursePage.course.id === courseId) {
+            await loadMyProgress(courseId);
+        }
     } catch (e) {
         showMessage(e.message, true);
     }
@@ -355,6 +360,8 @@ async function enroll(courseId) {
 // ----- Страница курса (course-service): программа, вебинары, посты, отзывы -----
 
 async function loadCoursePage(id) {
+    myEnrollment = null;
+    completedLessons = [];
     try {
         coursePage = await request('GET', '/courses/' + id + '/page');
     } catch (e) {
@@ -385,6 +392,45 @@ async function loadCoursePage(id) {
     renderWebinars();
     renderPosts();
     renderReviews();
+    loadMyProgress(c.id);
+}
+
+// Прохождение курса (enrollment-service): своя запись на этот курс и пройденные уроки
+async function loadMyProgress(courseId) {
+    if (!currentUser) {
+        return;
+    }
+    try {
+        if (!myStudent) {
+            await loadMyStudent();
+        }
+        if (!myStudent) {
+            return;
+        }
+        const enrollments = await request('GET', '/enrollments?studentId=' + myStudent.id);
+        myEnrollment = enrollments.find(function (e) { return e.courseId === courseId && e.status !== 'CANCELLED'; }) || null;
+        completedLessons = myEnrollment ? await request('GET', '/enrollments/' + myEnrollment.id + '/lessons') : [];
+    } catch (e) {
+        myEnrollment = null;
+        completedLessons = [];
+    }
+    renderProgram();
+}
+
+async function completeLesson(lessonId) {
+    try {
+        myEnrollment = await request('POST', '/enrollments/' + myEnrollment.id + '/lessons/' + lessonId + '/complete');
+        if (!completedLessons.includes(lessonId)) {
+            completedLessons.push(lessonId);
+        }
+        renderProgram();
+        if (myEnrollment.status === 'COMPLETED') {
+            showMessage('Курс пройден! Сертификат выпущен — он в разделе «Мои курсы».');
+            updateBell();
+        }
+    } catch (e) {
+        showMessage(e.message, true);
+    }
 }
 
 function renderProgram() {
@@ -393,15 +439,37 @@ function renderProgram() {
     document.getElementById('course-program-summary').textContent = coursePage.modules.length === 0
         ? 'Программа появится ближе к старту.'
         : coursePage.modules.length + ' модул. · ' + coursePage.lessonsCount + ' урок. · ' + hours + ' ч ' + minutes + ' мин';
+    const enrollButton = document.getElementById('course-enroll');
     let html = '';
+    if (myEnrollment) {
+        const completed = myEnrollment.status === 'COMPLETED';
+        enrollButton.textContent = completed ? 'Курс пройден' : 'Вы записаны';
+        enrollButton.disabled = true;
+        html += '<div class="progress"><div class="progress-bar" style="width:' + myEnrollment.progress + '%"></div></div>' +
+            '<p class="hint">' + (completed
+                ? 'Курс пройден — сертификат в разделе <a href="#my">«Мои курсы»</a>.'
+                : 'Ваш прогресс: ' + myEnrollment.progress + '%. Отмечайте пройденные уроки — после последнего выдадим сертификат.') +
+            '</p>';
+    } else {
+        enrollButton.textContent = 'Записаться';
+        enrollButton.disabled = false;
+    }
     for (const m of coursePage.modules) {
         let lessons = '';
         for (const l of m.lessons) {
+            let action = '';
+            if (myEnrollment) {
+                action = completedLessons.includes(l.id)
+                    ? '<span class="badge green">✓ пройден</span>'
+                    : (myEnrollment.status === 'ACTIVE'
+                        ? '<button class="small secondary" onclick="completeLesson(' + l.id + ')">Пройден</button>'
+                        : '');
+            }
             lessons +=
                 '<div class="lesson">' + (l.hasVideo ? '▶ ' : '📄 ') + esc(l.title) +
-                '<span>' + (l.durationMin ? l.durationMin + ' мин' : '') + '</span></div>';
+                '<span class="lesson-side">' + (l.durationMin ? l.durationMin + ' мин' : '') + action + '</span></div>';
         }
-        html += '<details' + (m.position === 1 ? ' open' : '') + '><summary>Модуль ' + m.position + '. ' +
+        html += '<details' + (m.position === 1 || myEnrollment ? ' open' : '') + '><summary>Модуль ' + m.position + '. ' +
             esc(m.title) + '</summary>' + lessons + '</details>';
     }
     document.getElementById('course-program').innerHTML = html;

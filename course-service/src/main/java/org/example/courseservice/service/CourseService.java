@@ -15,6 +15,7 @@ import org.example.courseservice.repository.CategoryRepository;
 import org.example.courseservice.repository.CourseModuleRepository;
 import org.example.courseservice.repository.CourseRepository;
 import org.example.courseservice.repository.InstructorRepository;
+import org.example.courseservice.repository.LessonRepository;
 import org.example.courseservice.repository.ReviewRepository;
 import org.example.courseservice.repository.TagRepository;
 import org.example.courseservice.repository.WebinarRepository;
@@ -39,6 +40,7 @@ public class CourseService {
     private final CourseModuleRepository moduleRepository;
     private final ReviewRepository reviewRepository;
     private final WebinarRepository webinarRepository;
+    private final LessonRepository lessonRepository;
 
     public List<CourseDto> findAll() {
         return courseRepository.findAll(Sort.by("id")).stream()
@@ -48,6 +50,11 @@ public class CourseService {
 
     public CourseDto findById(Long id) {
         return CourseDto.from(getCourse(id));
+    }
+
+    public List<Long> findLessonIds(Long id) {
+        getCourse(id);
+        return lessonRepository.findIdsByCourseId(id);
     }
 
     @Transactional

@@ -106,6 +106,24 @@ class CourseControllerTest {
     }
 
     @Test
+    void lessonIdsReturnsList() throws Exception {
+        when(courseService.findLessonIds(1L)).thenReturn(List.of(11L, 12L, 13L));
+
+        mockMvc.perform(get("/courses/1/lessons/ids"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0]").value(11));
+    }
+
+    @Test
+    void lessonIdsReturns404WhenCourseMissing() throws Exception {
+        when(courseService.findLessonIds(99L)).thenThrow(new NotFoundException("Курс с id 99 не найден"));
+
+        mockMvc.perform(get("/courses/99/lessons/ids"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void createReturns201() throws Exception {
         when(courseService.create(any(CourseRequest.class)))
                 .thenReturn(course(6L, "Spring Boot и микросервисы", CourseStatus.DRAFT));

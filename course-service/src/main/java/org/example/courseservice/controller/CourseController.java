@@ -58,6 +58,16 @@ public class CourseController {
         return courseService.findById(id);
     }
 
+    @GetMapping("/{id}/lessons/ids")
+    @Operation(summary = "id уроков курса", description = "По порядку модулей и уроков. Нужен enrollment-service для подсчёта прогресса")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Список id уроков, может быть пустым"),
+            @ApiResponse(responseCode = "404", description = "Курс не найден", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    public List<Long> getLessonIds(@Parameter(description = "id курса", example = "1") @PathVariable Long id) {
+        return courseService.findLessonIds(id);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Создать курс", description = "Если статус не передан, курс создаётся черновиком (DRAFT). Только ADMIN (проверяет api-gateway)")

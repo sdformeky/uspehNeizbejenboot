@@ -11,12 +11,16 @@ import org.example.enrollmentservice.dto.NotificationRequest;
 import org.example.enrollmentservice.dto.StudentDto;
 import org.example.enrollmentservice.exception.ConflictException;
 import org.example.enrollmentservice.exception.ForbiddenException;
+import org.example.enrollmentservice.exception.ResourceNotFoundException;
 import org.example.enrollmentservice.model.Enrollment;
 import org.example.enrollmentservice.model.EnrollmentStatus;
+import org.example.enrollmentservice.model.LessonProgress;
 import org.example.enrollmentservice.repository.EnrollmentRepository;
+import org.example.enrollmentservice.repository.LessonProgressRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -29,6 +33,7 @@ public class EnrollmentService {
     private final CertificateClient certificateClient;
     private final NotificationClient notificationClient;
     private final EnrollmentRepository enrollmentRepository;
+    private final LessonProgressRepository lessonProgressRepository;
 
     @Transactional
     public Enrollment createEnrollment(Long studentId, Long courseId, Long currentUserId, String roles) {
@@ -58,22 +63,9 @@ public class EnrollmentService {
         Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
         log.info("Студент {} записан на курс {}, запись {}", studentId, courseId, savedEnrollment.getId());
 
-        // 3. Вызов доп. сервиса после основного действия
-        try {
-            certificateClient.issueCertificate(savedEnrollment.getId());
-        } catch (Exception e) {
-            log.error("Не удалось выпустить сертификат для записи ID {}: {}", savedEnrollment.getId(), e.getMessage());
-        }
-
-        // 4. Уведомление студенту — если его профиль привязан к пользователю сайта
-        if (student.getUserId() != null) {
-            try {
-                notificationClient.send(new NotificationRequest(student.getUserId(), "ENROLLMENT",
-                        "Вы записаны на курс «" + course.getTitle() + "»"));
-            } catch (Exception e) {
-                log.error("Не удалось отправить уведомление о записи ID {}: {}", savedEnrollment.getId(), e.getMessage());
-            }
-        }
+        // 3. Уведомление студенту — если его профиль привязан к пользователю сайта.
+        // Сертификат выдаётся не здесь, а после прохождения всех уроков (completeLesson)
+        notify(student, "ENROLLMENT", "Вы записаны на курс «" + course.getTitle() + "»", savedEnrollment.getId());
 
         return savedEnrollment;
     }
@@ -84,6 +76,74 @@ public class EnrollmentService {
             return enrollmentRepository.findByStudentId(studentId);
         }
         return enrollmentRepository.findAll();
+    }
+
+    public List<Long> findCompletedLessons(Long enrollmentId, Long currentUserId, String roles) {
+        Enrollment enrollment = getEnrollment(enrollmentId);
+        checkOwner(studentClient.getStudentById(enrollment.getStudentId()), currentUserId, roles);
+        return lessonProgressRepository.findByEnrollmentId(enrollmentId).stream()
+                .filter(LessonProgress::isCompleted)
+                .map(LessonProgress::getLessonId)
+                .toList();
+    }
+
+    @Transactional
+    public Enrollment completeLesson(Long enrollmentId, Long lessonId, Long currentUserId, String roles) {
+        Enrollment enrollment = getEnrollment(enrollmentId);
+        StudentDto student = studentClient.getStudentById(enrollment.getStudentId());
+        checkOwner(student, currentUserId, roles);
+        if (enrollment.getStatus() != EnrollmentStatus.ACTIVE) {
+            throw new ConflictException("Запись " + enrollmentId + " уже не активна: курс завершён или запись отменена");
+        }
+        List<Long> lessonIds = courseClient.getLessonIds(enrollment.getCourseId());
+        if (!lessonIds.contains(lessonId)) {
+            throw new ResourceNotFoundException("Урока " + lessonId + " нет в курсе " + enrollment.getCourseId());
+        }
+
+        LessonProgress progress = lessonProgressRepository.findByEnrollmentIdAndLessonId(enrollmentId, lessonId)
+                .orElseGet(LessonProgress::new);
+        if (!progress.isCompleted()) {
+            progress.setEnrollment(enrollment);
+            progress.setLessonId(lessonId);
+            progress.setCompleted(true);
+            progress.setCompletedAt(LocalDateTime.now());
+            lessonProgressRepository.save(progress);
+        }
+
+        long done = lessonProgressRepository.findByEnrollmentId(enrollmentId).stream()
+                .filter(p -> p.isCompleted() && lessonIds.contains(p.getLessonId()))
+                .count();
+        enrollment.setProgress((int) (done * 100 / lessonIds.size()));
+        log.info("Запись {}: урок {} пройден, прогресс {}%", enrollmentId, lessonId, enrollment.getProgress());
+
+        if (done == lessonIds.size()) {
+            enrollment.setStatus(EnrollmentStatus.COMPLETED);
+            enrollment.setCompletedAt(LocalDateTime.now());
+            log.info("Запись {}: курс {} завершён", enrollmentId, enrollment.getCourseId());
+            try {
+                certificateClient.issueCertificate(enrollmentId);
+            } catch (Exception e) {
+                log.error("Не удалось выпустить сертификат для записи ID {}: {}", enrollmentId, e.getMessage());
+            }
+            notify(student, "CERTIFICATE_ISSUED", "Курс пройден! Сертификат — в разделе «Мои курсы»", enrollmentId);
+        }
+        return enrollmentRepository.save(enrollment);
+    }
+
+    private Enrollment getEnrollment(Long id) {
+        return enrollmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Запись на курс " + id + " не найдена"));
+    }
+
+    private void notify(StudentDto student, String type, String text, Long enrollmentId) {
+        if (student.getUserId() == null) {
+            return;
+        }
+        try {
+            notificationClient.send(new NotificationRequest(student.getUserId(), type, text));
+        } catch (Exception e) {
+            log.error("Не удалось отправить уведомление по записи ID {}: {}", enrollmentId, e.getMessage());
+        }
     }
 
     // Пользователь (X-User-Id от gateway) работает только со своим профилем студента; ADMIN — с любым.

@@ -119,6 +119,10 @@ h3 { font-size: 15px; margin: 20px 0 8px; }
 .columns.wide-left .card { margin-bottom: 20px; }
 .lesson { display: flex; justify-content: space-between; padding: 6px 0 6px 12px; color: var(--text); }
 .lesson span { color: var(--muted); font-size: 13px; }
+.lesson-side { display: flex; align-items: center; gap: 10px; }
+.lesson-side .badge { color: var(--accent-dark); font-size: 12px; }
+.progress { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
+.progress-bar { height: 100%; background: var(--accent); transition: width .3s; }
 .post { border-bottom: 1px solid var(--border); padding: 12px 0; }
 .post:last-child { border-bottom: none; }
 .post h3 { margin: 0 0 4px; }

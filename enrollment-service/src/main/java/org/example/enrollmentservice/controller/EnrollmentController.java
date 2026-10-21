@@ -78,4 +78,40 @@ public class EnrollmentController {
     ) {
         return enrollmentService.findAll(studentId, currentUserId, roles);
     }
+
+    @GetMapping("/{id}/lessons")
+    @Operation(summary = "Пройденные уроки", description = "id уроков, отмеченных пройденными в этой записи")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Список id пройденных уроков"),
+        @ApiResponse(responseCode = "403", description = "Чужая запись"),
+        @ApiResponse(responseCode = "404", description = "Запись не найдена")
+    })
+    public List<Long> getCompletedLessons(
+            @Parameter(description = "ID записи на курс", example = "1") @PathVariable Long id,
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles
+    ) {
+        return enrollmentService.findCompletedLessons(id, currentUserId, roles);
+    }
+
+    @PostMapping("/{id}/lessons/{lessonId}/complete")
+    @Operation(
+        summary = "Отметить урок пройденным",
+        description = "Пересчитывает прогресс. Когда пройдены все уроки курса, запись становится COMPLETED, "
+            + "certificate-service выпускает сертификат, notification-service присылает уведомление."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Урок отмечен, в ответе — запись с новым прогрессом"),
+        @ApiResponse(responseCode = "403", description = "Чужая запись"),
+        @ApiResponse(responseCode = "404", description = "Запись не найдена или урока нет в этом курсе"),
+        @ApiResponse(responseCode = "409", description = "Запись уже завершена или отменена")
+    })
+    public Enrollment completeLesson(
+            @Parameter(description = "ID записи на курс", example = "1") @PathVariable Long id,
+            @Parameter(description = "ID урока", example = "1") @PathVariable Long lessonId,
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+            @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles
+    ) {
+        return enrollmentService.completeLesson(id, lessonId, currentUserId, roles);
+    }
 }
