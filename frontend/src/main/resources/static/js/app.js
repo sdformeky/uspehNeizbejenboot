@@ -3,12 +3,14 @@
 
 const API = 'http://localhost:8080/api';
 
-let currentUser = loadUser();   // вошедший пользователь из auth-service: {id, email, roles}
+let token = loadSaved('token');        // JWT от auth-service, отправляем в заголовке Authorization
+let currentUser = loadSaved('user');   // вошедший пользователь: {id, email, roles}
 let myStudent = null;           // профиль студента текущего пользователя (student-service)
 let courses = [];               // каталог курсов (course-service)
 let students = [];              // все студенты (student-service)
 let editingStudent = null;      // студент, которого сейчас редактируем на странице «Студенты»
 let selectedTicketId = null;    // открытое обращение на странице «Поддержка»
+let coursePage = null;          // данные открытой страницы курса
 
 const ENROLLMENT_STATUS = { ACTIVE: 'Учится', COMPLETED: 'Завершён', CANCELLED: 'Отменён' };
 const TICKET_STATUS = { OPEN: 'Открыто', IN_PROGRESS: 'В работе', RESOLVED: 'Решено', CLOSED: 'Закрыто' };
@@ -18,8 +20,12 @@ const STUDENT_STATUS = { ACTIVE: 'Активен', BLOCKED: 'Заблокиро�
 // ===================== общее =====================
 
 // Запрос к API через gateway. При ошибке выбрасывает Error с понятным текстом.
+// Если пользователь вошёл — добавляем токен: по нему gateway понимает, кто это и что ему можно
 async function request(method, path, body) {
     const options = { method: method, headers: {} };
+    if (token) {
+        options.headers['Authorization'] = 'Bearer ' + token;
+    }
     if (body !== undefined) {
         options.headers['Content-Type'] = 'application/json';
         options.body = JSON.stringify(body);
@@ -43,6 +49,10 @@ async function request(method, path, body) {
     }
 
     if (!response.ok) {
+        // токен истёк или недействителен — выходим, чтобы пользователь вошёл заново
+        if (response.status === 401 && token) {
+            setSession(null);
+        }
         throw new Error(errorText(response.status, data));
     }
     return data;
@@ -111,21 +121,25 @@ function emptyToNull(value) {
 
 // ===================== пользователь (auth-service) =====================
 
-function loadUser() {
+function loadSaved(key) {
     try {
-        return JSON.parse(localStorage.getItem('user'));
+        return JSON.parse(localStorage.getItem(key));
     } catch (e) {
         return null;
     }
 }
 
-function setUser(user) {
-    currentUser = user;
+// auth — ответ auth-service на вход/регистрацию: {token, user}; null — выход
+function setSession(auth) {
+    token = auth ? auth.token : null;
+    currentUser = auth ? auth.user : null;
     myStudent = null;
     try {
-        if (user) {
-            localStorage.setItem('user', JSON.stringify(user));
+        if (auth) {
+            localStorage.setItem('token', JSON.stringify(auth.token));
+            localStorage.setItem('user', JSON.stringify(auth.user));
         } else {
+            localStorage.removeItem('token');
             localStorage.removeItem('user');
         }
     } catch (e) {
@@ -134,17 +148,42 @@ function setUser(user) {
     renderUserBox();
 }
 
+function hasRole(role) {
+    return currentUser !== null && currentUser.roles.includes(role);
+}
+
+function isAdmin() {
+    return hasRole('ADMIN');
+}
+
+// посты курса публикует преподаватель или админ (то же правило проверяет gateway)
+function canPost() {
+    return hasRole('INSTRUCTOR') || hasRole('ADMIN');
+}
+
 function renderUserBox() {
     const box = document.getElementById('user-box');
+    // «Студенты» — управление всеми студентами, только для администратора
+    document.getElementById('nav-students').classList.toggle('hidden', !isAdmin());
     if (!currentUser) {
         box.innerHTML = '<a href="#login">Войти</a>';
         return;
     }
     box.innerHTML =
         '<a class="bell" href="#notifications" title="Уведомления">🔔<b id="bell-count" class="hidden"></b></a>' +
-        '<span class="email">' + esc(currentUser.email) + '</span>' +
+        '<span class="email">' + esc(currentUser.email) + roleLabel() + '</span>' +
         '<button class="small secondary" onclick="logout()">Выйти</button>';
     updateBell();
+}
+
+function roleLabel() {
+    if (isAdmin()) {
+        return ' (админ)';
+    }
+    if (hasRole('INSTRUCTOR')) {
+        return ' (преподаватель)';
+    }
+    return '';
 }
 
 async function updateBell() {
@@ -165,14 +204,14 @@ async function login(event) {
     event.preventDefault();
     const form = event.target;
     try {
-        const user = await request('POST', '/auth/login', {
+        const auth = await request('POST', '/auth/login', {
             email: form.elements.email.value,
             password: form.elements.password.value
         });
-        setUser(user);
+        setSession(auth);
         form.reset();
-        showMessage('Добро пожаловать, ' + user.email + '!');
-        location.hash = '#my';
+        showMessage('Добро пожаловать, ' + auth.user.email + '!');
+        location.hash = isAdmin() || canPost() ? '#courses' : '#my';
     } catch (e) {
         showMessage(e.message, true);
     }
@@ -182,11 +221,11 @@ async function register(event) {
     event.preventDefault();
     const form = event.target;
     try {
-        const user = await request('POST', '/auth/register', {
+        const auth = await request('POST', '/auth/register', {
             email: form.elements.email.value,
             password: form.elements.password.value
         });
-        setUser(user);
+        setSession(auth);
         form.reset();
         showMessage('Аккаунт создан. Заполните профиль студента, чтобы записываться на курсы.');
         location.hash = '#my';
@@ -196,28 +235,25 @@ async function register(event) {
 }
 
 function logout() {
-    setUser(null);
+    setSession(null);
     location.hash = '#courses';
 }
 
 // Профиль студента текущего пользователя: студент, у которого userId = id пользователя
 async function loadMyStudent() {
-    students = await request('GET', '/students');
-    myStudent = null;
-    for (const s of students) {
-        if (s.userId === currentUser.id) {
-            myStudent = s;
-        }
-    }
+    const list = await request('GET', '/students?userId=' + currentUser.id);
+    myStudent = list.length > 0 ? list[0] : null;
 }
 
 
 // ===================== страницы =====================
 
-const PAGES = ['courses', 'my', 'support', 'notifications', 'students', 'verify', 'login'];
+const PAGES = ['courses', 'course', 'my', 'support', 'notifications', 'students', 'verify', 'login'];
 
+// Адрес страницы — после #: #courses, #my, #course/2 (страница курса с id 2)
 function showPage() {
-    let name = location.hash.replace('#', '');
+    const parts = location.hash.replace('#', '').split('/');
+    let name = parts[0];
     if (!PAGES.includes(name)) {
         name = 'courses';
     }
@@ -225,11 +261,14 @@ function showPage() {
         document.getElementById('page-' + page).classList.toggle('hidden', page !== name);
     }
     for (const link of document.querySelectorAll('.nav a')) {
-        link.classList.toggle('active', link.dataset.page === name);
+        const active = link.dataset.page === name || (name === 'course' && link.dataset.page === 'courses');
+        link.classList.toggle('active', active);
     }
 
     if (name === 'courses') {
         loadCourses();
+    } else if (name === 'course') {
+        loadCoursePage(Number(parts[1]));
     } else if (name === 'my') {
         loadMy();
     } else if (name === 'support') {
@@ -261,14 +300,17 @@ async function loadCourses() {
         const price = Number(c.price) === 0 ? 'Бесплатно' : Number(c.price).toLocaleString('ru-RU') + ' ₽';
         html +=
             '<div class="card course">' +
-            '  <h2>' + esc(c.title) + '</h2>' +
+            '  <h2><a href="#course/' + c.id + '">' + esc(c.title) + '</a></h2>' +
             '  <div class="meta">' + esc(c.categoryName) + ' · ' + esc(c.instructorName) +
             '    · ' + formatDate(c.startDate) + ' — ' + formatDate(c.endDate) + '</div>' +
             '  <p>' + esc(c.description) + '</p>' +
             '  <div class="tags">' + tags + '</div>' +
             '  <div class="bottom">' +
             '    <span class="price">' + price + '</span>' +
-            '    <button onclick="enroll(' + c.id + ')">Записаться</button>' +
+            '    <span>' +
+            '      <a class="button-link" href="#course/' + c.id + '">Подробнее</a> ' +
+            '      <button onclick="enroll(' + c.id + ')">Записаться</button>' +
+            '    </span>' +
             '  </div>' +
             '</div>';
     }
@@ -295,9 +337,136 @@ async function enroll(courseId) {
             return;
         }
         await request('POST', '/enrollments?studentId=' + myStudent.id + '&courseId=' + courseId);
+        let title = 'курс';
         const course = courses.find(function (c) { return c.id === courseId; });
-        showMessage('Вы записаны на курс «' + course.title + '». Сертификат — в разделе «Мои курсы».');
+        if (course) {
+            title = course.title;
+        } else if (coursePage) {
+            title = coursePage.course.title;
+        }
+        showMessage('Вы записаны на курс «' + title + '». Сертификат — в разделе «Мои курсы».');
         updateBell();
+    } catch (e) {
+        showMessage(e.message, true);
+    }
+}
+
+
+// ----- Страница курса (course-service): программа, вебинары, посты, отзывы -----
+
+async function loadCoursePage(id) {
+    try {
+        coursePage = await request('GET', '/courses/' + id + '/page');
+    } catch (e) {
+        document.getElementById('course-title').textContent = 'Курс не найден';
+        showMessage(e.message, true);
+        return;
+    }
+    const c = coursePage.course;
+    document.getElementById('course-title').textContent = c.title;
+    document.getElementById('course-meta').textContent =
+        c.categoryName + ' · ' + formatDate(c.startDate) + ' — ' + formatDate(c.endDate) +
+        (c.maxStudents ? ' · до ' + c.maxStudents + ' студентов' : '');
+    document.getElementById('course-description').textContent = c.description;
+    let tags = '';
+    for (const t of c.tags) {
+        tags += '<span class="tag">' + esc(t) + '</span>';
+    }
+    document.getElementById('course-tags').innerHTML = tags;
+    document.getElementById('course-price').textContent =
+        Number(c.price) === 0 ? 'Бесплатно' : Number(c.price).toLocaleString('ru-RU') + ' ₽';
+    document.getElementById('course-rating').textContent = coursePage.averageRating
+        ? '★ ' + coursePage.averageRating + ' (' + coursePage.reviews.length + ' отзыв.)'
+        : 'Отзывов пока нет';
+    document.getElementById('course-instructor').innerHTML =
+        '<b>' + esc(c.instructorName || '—') + '</b><br><span class="hint">' + esc(coursePage.instructorBio || '') + '</span>';
+
+    renderProgram();
+    renderWebinars();
+    renderPosts();
+    renderReviews();
+}
+
+function renderProgram() {
+    const hours = Math.floor(coursePage.totalMinutes / 60);
+    const minutes = coursePage.totalMinutes % 60;
+    document.getElementById('course-program-summary').textContent = coursePage.modules.length === 0
+        ? 'Программа появится ближе к старту.'
+        : coursePage.modules.length + ' модул. · ' + coursePage.lessonsCount + ' урок. · ' + hours + ' ч ' + minutes + ' мин';
+    let html = '';
+    for (const m of coursePage.modules) {
+        let lessons = '';
+        for (const l of m.lessons) {
+            lessons +=
+                '<div class="lesson">' + (l.hasVideo ? '▶ ' : '📄 ') + esc(l.title) +
+                '<span>' + (l.durationMin ? l.durationMin + ' мин' : '') + '</span></div>';
+        }
+        html += '<details' + (m.position === 1 ? ' open' : '') + '><summary>Модуль ' + m.position + '. ' +
+            esc(m.title) + '</summary>' + lessons + '</details>';
+    }
+    document.getElementById('course-program').innerHTML = html;
+}
+
+function renderWebinars() {
+    let html = '';
+    for (const w of coursePage.webinars) {
+        html += '<li><b>' + esc(w.title) + '</b><div class="meta">' + formatDateTime(w.startsAt) + '</div></li>';
+    }
+    document.getElementById('course-webinars').innerHTML = html || '<li class="hint">Вебинаров пока нет.</li>';
+}
+
+function renderPosts() {
+    document.getElementById('post-form').classList.toggle('hidden', !canPost());
+    let html = '';
+    for (const p of coursePage.posts) {
+        html +=
+            '<div class="post"><h3>' + esc(p.title) + '</h3>' +
+            '<div class="meta">' + esc(p.authorName) + ' · ' + formatDateTime(p.createdAt) + '</div>' +
+            '<p>' + esc(p.text) + '</p></div>';
+    }
+    document.getElementById('course-posts').innerHTML = html || '<p class="hint">Новостей пока нет.</p>';
+}
+
+function renderReviews() {
+    // форму видит любой вошедший; записан ли он на курс — проверит course-service
+    document.getElementById('review-form').classList.toggle('hidden', currentUser === null);
+    let html = '';
+    for (const r of coursePage.reviews) {
+        html +=
+            '<div class="review"><b>' + esc(r.studentName) + '</b> <span class="rating">' + '★'.repeat(r.rating) +
+            '</span><div class="meta">' + formatDate(r.createdAt) + '</div>' +
+            (r.comment ? '<p>' + esc(r.comment) + '</p>' : '') + '</div>';
+    }
+    document.getElementById('course-reviews').innerHTML = html || '<p class="hint">Отзывов пока нет — будьте первым.</p>';
+}
+
+async function addPost(event) {
+    event.preventDefault();
+    const form = event.target;
+    try {
+        await request('POST', '/courses/' + coursePage.course.id + '/posts', {
+            title: form.elements.title.value,
+            text: form.elements.text.value
+        });
+        form.reset();
+        showMessage('Пост опубликован.');
+        loadCoursePage(coursePage.course.id);
+    } catch (e) {
+        showMessage(e.message, true);
+    }
+}
+
+async function addReview(event) {
+    event.preventDefault();
+    const form = event.target;
+    try {
+        await request('POST', '/courses/' + coursePage.course.id + '/reviews', {
+            rating: Number(form.elements.rating.value),
+            comment: emptyToNull(form.elements.comment.value)
+        });
+        form.reset();
+        showMessage('Спасибо за отзыв!');
+        loadCoursePage(coursePage.course.id);
     } catch (e) {
         showMessage(e.message, true);
     }
@@ -390,7 +559,7 @@ async function renderMyEnrollments() {
         }
         html +=
             '<tr>' +
-            '<td>' + esc(course ? course.title : 'Курс #' + e.courseId) + '</td>' +
+            '<td><a href="#course/' + e.courseId + '">' + esc(course ? course.title : 'Курс #' + e.courseId) + '</a></td>' +
             '<td><span class="badge green">' + esc(ENROLLMENT_STATUS[e.status] || e.status) + '</span></td>' +
             '<td>' + e.progress + '%</td>' +
             '<td>' + formatDate(e.enrolledAt) + '</td>' +
@@ -709,6 +878,9 @@ document.getElementById('close-ticket').addEventListener('click', resolveTicket)
 document.getElementById('student-form').addEventListener('submit', saveStudent);
 document.getElementById('student-cancel').addEventListener('click', cancelEdit);
 document.getElementById('verify-form').addEventListener('submit', checkCertificate);
+document.getElementById('post-form').addEventListener('submit', addPost);
+document.getElementById('review-form').addEventListener('submit', addReview);
+document.getElementById('course-enroll').addEventListener('click', function () { enroll(coursePage.course.id); });
 window.addEventListener('hashchange', showPage);
 
 renderUserBox();

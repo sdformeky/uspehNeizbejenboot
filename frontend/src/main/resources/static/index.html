@@ -14,7 +14,7 @@
         <a href="#courses" data-page="courses">Курсы</a>
         <a href="#my" data-page="my">Мои курсы</a>
         <a href="#support" data-page="support">Поддержка</a>
-        <a href="#students" data-page="students">Студенты</a>
+        <a href="#students" data-page="students" id="nav-students" class="hidden">Студенты</a>
         <a href="#verify" data-page="verify">Проверка сертификата</a>
     </nav>
     <div class="user" id="user-box">
@@ -29,6 +29,71 @@
     <section id="page-courses" class="page">
         <h1>Каталог курсов</h1>
         <div id="courses-list" class="cards"></div>
+    </section>
+
+    <!-- Страница курса: course-service (программа, вебинары, посты, отзывы) -->
+    <section id="page-course" class="page hidden">
+        <p><a href="#courses">← Все курсы</a></p>
+        <div class="card course-head">
+            <div>
+                <h1 id="course-title"></h1>
+                <div id="course-meta" class="meta"></div>
+                <p id="course-description"></p>
+                <div id="course-tags" class="tags"></div>
+            </div>
+            <div class="course-side">
+                <div id="course-price" class="price big"></div>
+                <div id="course-rating" class="rating"></div>
+                <button id="course-enroll">Записаться</button>
+            </div>
+        </div>
+        <div class="columns wide-left">
+            <div>
+                <div class="card">
+                    <h2>Программа</h2>
+                    <p id="course-program-summary" class="hint"></p>
+                    <div id="course-program"></div>
+                </div>
+                <div class="card">
+                    <h2>Новости курса</h2>
+                    <form id="post-form" class="form hidden">
+                        <label>Заголовок <input name="title" required maxlength="200"></label>
+                        <label>Текст <textarea name="text" rows="3" required></textarea></label>
+                        <button type="submit">Опубликовать</button>
+                    </form>
+                    <div id="course-posts"></div>
+                </div>
+                <div class="card">
+                    <h2>Отзывы</h2>
+                    <form id="review-form" class="form hidden">
+                        <div class="row">
+                            <label>Оценка
+                                <select name="rating">
+                                    <option value="5">5 — отлично</option>
+                                    <option value="4">4 — хорошо</option>
+                                    <option value="3">3 — нормально</option>
+                                    <option value="2">2 — плохо</option>
+                                    <option value="1">1 — ужасно</option>
+                                </select>
+                            </label>
+                        </div>
+                        <label>Отзыв <textarea name="comment" rows="2" maxlength="2000"></textarea></label>
+                        <button type="submit">Оставить отзыв</button>
+                    </form>
+                    <div id="course-reviews"></div>
+                </div>
+            </div>
+            <div>
+                <div class="card">
+                    <h2>Преподаватель</h2>
+                    <p id="course-instructor"></p>
+                </div>
+                <div class="card">
+                    <h2>Вебинары</h2>
+                    <ul id="course-webinars" class="list"></ul>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- Профиль, записи и сертификаты: student-, enrollment-, certificate-service -->
