@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -44,14 +45,16 @@ public class NotificationController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Отправить уведомление", description = "Вызывают другие сервисы, например enrollment-service после записи на курс")
+    @Operation(summary = "Отправить уведомление",
+            description = "Вызывают другие сервисы напрямую (enrollment-service после записи); через gateway — только ADMIN")
     public NotificationDto create(@Valid @RequestBody NotificationRequest request) {
         return notificationService.create(request);
     }
 
     @PatchMapping("/{id}/read")
     @Operation(summary = "Отметить прочитанным")
-    public NotificationDto markRead(@PathVariable Long id) {
-        return notificationService.markRead(id);
+    public NotificationDto markRead(@PathVariable Long id,
+                                    @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId) {
+        return notificationService.markRead(id, currentUserId);
     }
 }

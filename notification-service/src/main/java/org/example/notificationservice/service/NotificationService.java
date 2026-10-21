@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.notificationservice.dto.NotificationDto;
 import org.example.notificationservice.dto.NotificationRequest;
+import org.example.notificationservice.exception.ForbiddenException;
 import org.example.notificationservice.exception.NotFoundException;
 import org.example.notificationservice.model.Notification;
 import org.example.notificationservice.repository.NotificationRepository;
@@ -42,9 +43,13 @@ public class NotificationService {
     }
 
     @Transactional
-    public NotificationDto markRead(Long id) {
+    public NotificationDto markRead(Long id, Long currentUserId) {
         Notification notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Уведомление с id " + id + " не найдено"));
+        // X-User-Id ставит api-gateway по токену: отмечать можно только свои уведомления
+        if (currentUserId != null && !notification.getUserId().equals(currentUserId)) {
+            throw new ForbiddenException("Это чужое уведомление");
+        }
         notification.setRead(true);
         return NotificationDto.from(notification);
     }
