@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.studentservice.dto.StudentDto;
 import org.example.studentservice.dto.StudentRequest;
+import org.example.studentservice.exception.ForbiddenException;
 import org.example.studentservice.service.StudentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -20,7 +21,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,9 +38,14 @@ public class StudentController {
     private final StudentService studentService;
 
     @GetMapping
-    @Operation(summary = "Список всех студентов", description = "Все студенты, отсортированные по id")
+    @Operation(summary = "Список студентов",
+            description = "Все студенты, отсортированные по id (только ADMIN), или профиль одного пользователя сайта (?userId=)")
     @ApiResponse(responseCode = "200", description = "Список студентов")
-    public List<StudentDto> getAll() {
+    public List<StudentDto> getAll(@Parameter(description = "id пользователя из auth-service", example = "3")
+                                   @RequestParam(required = false) Long userId) {
+        if (userId != null) {
+            return studentService.findByUserId(userId);
+        }
         return studentService.findAll();
     }
 
@@ -54,21 +62,30 @@ public class StudentController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Создать студента", description = "Если статус не передан, студент создаётся активным (ACTIVE)")
+    @Operation(summary = "Создать студента", description = "Если статус не передан, студент создаётся активным (ACTIVE). "
+            + "Пользователь может создать профиль только себе, ADMIN — любой")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Студент создан"),
             @ApiResponse(responseCode = "400", description = "Ошибка валидации: в поле errors — сообщение по каждому полю",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "403", description = "Профиль для чужого пользователя", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "404", description = "Группа не найдена", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
             @ApiResponse(responseCode = "409", description = "userId уже привязан к другому студенту",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     })
-    public StudentDto create(@Valid @RequestBody StudentRequest request) {
+    public StudentDto create(@Valid @RequestBody StudentRequest request,
+                             // заголовки ставит api-gateway по токену; при вызове из другого сервиса их нет
+                             @Parameter(hidden = true) @RequestHeader(value = "X-User-Id", required = false) Long currentUserId,
+                             @Parameter(hidden = true) @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        boolean admin = roles != null && roles.contains("ADMIN");
+        if (currentUserId != null && !admin && !currentUserId.equals(request.userId())) {
+            throw new ForbiddenException("Профиль студента можно создать только себе");
+        }
         return studentService.create(request);
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Обновить студента", description = "Полная замена: поля, которые не переданы, станут пустыми")
+    @Operation(summary = "Обновить студента", description = "Полная замена: поля, которые не переданы, станут пустыми. Только ADMIN (проверяет api-gateway)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Студент обновлён"),
             @ApiResponse(responseCode = "400", description = "Ошибка валидации", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
@@ -83,7 +100,7 @@ public class StudentController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Удалить студента", description = "Вместе со студентом удаляется его список избранных курсов")
+    @Operation(summary = "Удалить студента", description = "Вместе со студентом удаляется его список избранных курсов. Только ADMIN (проверяет api-gateway)")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Студент удалён"),
             @ApiResponse(responseCode = "404", description = "Студент не найден", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))

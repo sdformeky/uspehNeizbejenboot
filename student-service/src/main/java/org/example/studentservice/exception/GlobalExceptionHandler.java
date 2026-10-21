@@ -26,6 +26,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Не найдено", e.getMessage());
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ProblemDetail handleForbidden(ForbiddenException e) {
+        return problem(HttpStatus.FORBIDDEN, "Нет доступа", e.getMessage());
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ProblemDetail handleConflict(ConflictException e, HttpServletRequest request) {
         log.warn("409 {} {}: {}", request.getMethod(), request.getRequestURI(), e.getMessage());
