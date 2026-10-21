@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.example.certificateservice.model.Certificate;
+
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -16,4 +19,15 @@ public class CertificateResponse {
     private Long enrollmentId;
     @Schema(description = "Статус сертификата", example = "GENERATED")
     private String status;
+    @Schema(description = "Номер сертификата — по нему проверяют подлинность", example = "UN-2026-000001")
+    private String number;
+    @Schema(description = "Шаблон оформления", example = "Стандартный")
+    private String templateName;
+    @Schema(description = "Когда выдан")
+    private LocalDateTime issuedAt;
+
+    public static CertificateResponse from(Certificate c) {
+        return new CertificateResponse(c.getId(), c.getEnrollmentId(), "GENERATED", c.getNumber(),
+                c.getTemplate().getName(), c.getIssuedAt());
+    }
 }
