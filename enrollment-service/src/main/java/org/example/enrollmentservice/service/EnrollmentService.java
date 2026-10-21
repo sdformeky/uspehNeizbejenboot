@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.enrollmentservice.client.CertificateClient;
 import org.example.enrollmentservice.client.CourseClient;
 import org.example.enrollmentservice.client.StudentClient;
+import org.example.enrollmentservice.exception.ConflictException;
 import org.example.enrollmentservice.model.Enrollment;
 import org.example.enrollmentservice.repository.EnrollmentRepository;
 import org.springframework.stereotype.Service;
@@ -26,11 +27,16 @@ public class EnrollmentService {
         studentClient.getStudentById(studentId);
         courseClient.getCourseById(courseId);
 
+        if (enrollmentRepository.existsByStudentIdAndCourseId(studentId, courseId)) {
+            throw new ConflictException("Студент " + studentId + " уже записан на курс " + courseId);
+        }
+
         // 2. Создание записи в БД
         Enrollment enrollment = new Enrollment();
         enrollment.setStudentId(studentId);
         enrollment.setCourseId(courseId);
         Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
+        log.info("Студент {} записан на курс {}, запись {}", studentId, courseId, savedEnrollment.getId());
 
         // 3. Вызов доп. сервиса после основного действия
         try {

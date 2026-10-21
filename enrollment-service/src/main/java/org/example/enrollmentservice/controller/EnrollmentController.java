@@ -15,7 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/enrollments")
+@RequestMapping("/enrollments")
 @RequiredArgsConstructor
 @Tag(name = "Enrollment Controller", description = "Управление регистрациями студентов на курсы")
 public class EnrollmentController {
@@ -36,6 +36,10 @@ public class EnrollmentController {
             responseCode = "404", 
             description = "Студент или курс не найден в системе",
             content = @Content(examples = @ExampleObject(value = "{\"error\": \"Not Found\", \"message\": \"Ресурс не найден в зависимом сервисе...\"}"))
+        ),
+        @ApiResponse(
+            responseCode = "409",
+            description = "Студент уже записан на этот курс"
         ),
         @ApiResponse(
             responseCode = "502", 

@@ -4,9 +4,10 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "student-service", fallback = StudentClientFallback.class) 
+// Путь — как в самом student-service (без /api: этот префикс есть только у gateway)
+@FeignClient(name = "student-service", fallbackFactory = StudentClientFallback.class)
 public interface StudentClient {
 
-    @GetMapping("/api/students/{id}")
+    @GetMapping("/students/{id}")
     Object getStudentById(@PathVariable("id") Long id);
 }
