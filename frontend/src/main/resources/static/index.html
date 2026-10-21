@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Успех неизбежен — онлайн-школа</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="header">
+    <a class="logo" href="#courses">Успех<span>неизбежен</span></a>
+    <nav class="nav">
+        <a href="#courses" data-page="courses">Курсы</a>
+        <a href="#my" data-page="my">Мои курсы</a>
+        <a href="#support" data-page="support">Поддержка</a>
+        <a href="#students" data-page="students">Студенты</a>
+        <a href="#verify" data-page="verify">Проверка сертификата</a>
+    </nav>
+    <div class="user" id="user-box">
+        <!-- заполняется из app.js: «Войти» или email, колокольчик и «Выйти» -->
+    </div>
+</header>
+
+<main class="main">
+    <div id="message" class="message hidden"></div>
+
+    <!-- Каталог курсов: course-service -->
+    <section id="page-courses" class="page">
+        <h1>Каталог курсов</h1>
+        <div id="courses-list" class="cards"></div>
+    </section>
+
+    <!-- Профиль, записи и сертификаты: student-, enrollment-, certificate-service -->
+    <section id="page-my" class="page hidden">
+        <h1>Мои курсы</h1>
+        <div id="my-need-login" class="card hidden">
+            <p>Чтобы видеть свои курсы, <a href="#login">войдите или зарегистрируйтесь</a>.</p>
+        </div>
+        <div id="my-content" class="hidden">
+            <div class="card">
+                <h2>Профиль студента</h2>
+                <div id="profile-view"></div>
+                <form id="profile-form" class="form hidden">
+                    <p class="hint">Заполните профиль — без него нельзя записаться на курс.</p>
+                    <div class="row">
+                        <label>Имя <input name="firstName" required></label>
+                        <label>Фамилия <input name="lastName" required></label>
+                    </div>
+                    <div class="row">
+                        <label>Телефон <input name="phone" placeholder="+79161234567"></label>
+                        <label>Дата рождения <input name="birthDate" type="date"></label>
+                    </div>
+                    <button type="submit">Сохранить профиль</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Мои записи</h2>
+                <table class="table">
+                    <thead><tr><th>Курс</th><th>Статус</th><th>Прогресс</th><th>Записан</th><th>Сертификат</th></tr></thead>
+                    <tbody id="my-enrollments"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Техподдержка: support-service -->
+    <section id="page-support" class="page hidden">
+        <h1>Поддержка</h1>
+        <div class="card">
+            <h2>Частые вопросы</h2>
+            <div id="faq-list"></div>
+        </div>
+        <div id="support-need-login" class="card hidden">
+            <p>Чтобы написать в поддержку, <a href="#login">войдите</a>.</p>
+        </div>
+        <div id="support-content" class="hidden">
+            <div class="columns">
+                <div class="card">
+                    <h2>Мои обращения</h2>
+                    <ul id="tickets-list" class="list"></ul>
+                    <h3>Новое обращение</h3>
+                    <form id="ticket-form" class="form">
+                        <label>Тема <input name="subject" required maxlength="200"></label>
+                        <label>Категория
+                            <select name="category">
+                                <option value="COURSE_ACCESS">Доступ к курсу</option>
+                                <option value="PAYMENT">Оплата</option>
+                                <option value="CERTIFICATE">Сертификат</option>
+                                <option value="ACCOUNT">Аккаунт</option>
+                                <option value="OTHER" selected>Другое</option>
+                            </select>
+                        </label>
+                        <label>Сообщение <textarea name="text" rows="3" required></textarea></label>
+                        <button type="submit">Отправить</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h2 id="ticket-title">Переписка</h2>
+                    <p id="ticket-hint" class="hint">Выберите обращение слева.</p>
+                    <div id="ticket-messages" class="messages"></div>
+                    <form id="reply-form" class="form hidden">
+                        <label>Ответ <textarea name="text" rows="2" required></textarea></label>
+                        <div class="row">
+                            <button type="submit">Написать</button>
+                            <button type="button" id="close-ticket" class="secondary">Вопрос решён</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Уведомления: notification-service -->
+    <section id="page-notifications" class="page hidden">
+        <h1>Уведомления</h1>
+        <ul id="notifications-list" class="list"></ul>
+    </section>
+
+    <!-- Управление студентами: student-service (CRUD) -->
+    <section id="page-students" class="page hidden">
+        <h1>Студенты</h1>
+        <div class="card">
+            <table class="table">
+                <thead><tr><th>ID</th><th>ФИО</th><th>Группа</th><th>Телефон</th><th>Дата рождения</th><th>Статус</th><th></th></tr></thead>
+                <tbody id="students-list"></tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h2 id="student-form-title">Новый студент</h2>
+            <form id="student-form" class="form">
+                <div class="row">
+                    <label>Имя <input name="firstName" required></label>
+                    <label>Фамилия <input name="lastName" required></label>
+                </div>
+                <div class="row">
+                    <label>Телефон <input name="phone" placeholder="+79161234567"></label>
+                    <label>Дата рождения <input name="birthDate" type="date"></label>
+                </div>
+                <div class="row">
+                    <label>Группа <select name="groupId" id="group-select"></select></label>
+                    <label>Статус
+                        <select name="status">
+                            <option value="ACTIVE">Активен</option>
+                            <option value="BLOCKED">Заблокирован</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="row">
+                    <button type="submit">Сохранить</button>
+                    <button type="button" id="student-cancel" class="secondary hidden">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Проверка сертификата: certificate-service -->
+    <section id="page-verify" class="page hidden">
+        <h1>Проверка сертификата</h1>
+        <div class="card">
+            <form id="verify-form" class="form inline">
+                <input name="number" placeholder="UN-2026-000001" required>
+                <button type="submit">Проверить</button>
+            </form>
+            <div id="verify-result"></div>
+        </div>
+    </section>
+
+    <!-- Вход и регистрация: auth-service -->
+    <section id="page-login" class="page hidden">
+        <h1>Вход</h1>
+        <div class="columns">
+            <div class="card">
+                <h2>Войти</h2>
+                <form id="login-form" class="form">
+                    <label>Email <input name="email" type="email" required></label>
+                    <label>Пароль <input name="password" type="password" required></label>
+                    <button type="submit">Войти</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Регистрация</h2>
+                <form id="register-form" class="form">
+                    <label>Email <input name="email" type="email" required></label>
+                    <label>Пароль <input name="password" type="password" required minlength="6"></label>
+                    <button type="submit">Зарегистрироваться</button>
+                </form>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    Все запросы идут через api-gateway (порт 8080) → сервисы находятся через Eureka
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
