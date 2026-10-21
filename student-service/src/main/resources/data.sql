@@ -1,5 +1,3 @@
--- Тестовые данные student-service. Выполняется при каждом старте, повторный запуск ничего не дублирует.
-
 INSERT INTO groups (name, start_year, created_at)
 VALUES ('ИСП-21', 2021, now()),
        ('ИСП-22', 2022, now()),
