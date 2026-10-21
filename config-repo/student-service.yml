@@ -1,0 +1,5 @@
+# Настройки только для student-service, общие — в application.yml
+info:
+  app:
+    name: student-service
+    description: Студенты, учебные группы и избранные курсы

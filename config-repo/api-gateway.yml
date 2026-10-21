@@ -1,0 +1,155 @@
+# Настройки только для api-gateway, общие — в application.yml
+info:
+  app:
+    name: api-gateway
+    description: Единая точка входа для клиентов
+
+# Маршруты: /api/<путь>/** -> сервис из Eureka (lb:// — по имени, без адресов).
+# StripPrefix=1 убирает /api, и сервис получает обычный путь: /api/students -> /students
+spring:
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Без этого gateway не передаёт сервисам заголовки X-Forwarded-* (защита от подмены).
+          # Доверяем запросам с этой же машины — нужно для адресов в общем Swagger
+          trusted-proxies: 127\.0\.0\.1|0:0:0:0:0:0:0:1
+          # CORS — чтобы браузер пускал запросы со страниц на других портах (Swagger UI сервисов, фронт).
+          # Разрешены любые порты localhost; для боевого адреса фронта добавить его в allowedOriginPatterns
+          globalcors:
+            # ответ на preflight (OPTIONS) даже для путей, которых нет в маршрутах
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns:
+                  - http://localhost:[*]
+                  - http://127.0.0.1:[*]
+                allowedMethods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+                allowedHeaders: "*"
+                allowCredentials: true
+                maxAge: 3600
+          routes:
+            - id: student-service
+              uri: lb://student-service
+              predicates:
+                - Path=/api/students/**
+              filters:
+                - StripPrefix=1
+            - id: course-service
+              uri: lb://course-service
+              predicates:
+                - Path=/api/courses/**
+              filters:
+                - StripPrefix=1
+            - id: enrollment-service
+              uri: lb://enrollment-service
+              predicates:
+                - Path=/api/enrollments/**
+              filters:
+                - StripPrefix=1
+            - id: certificate-service
+              uri: lb://certificate-service
+              predicates:
+                - Path=/api/certificates/**
+              filters:
+                - StripPrefix=1
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=1
+            - id: support-service
+              uri: lb://support-service
+              predicates:
+                - Path=/api/support/**
+              filters:
+                - StripPrefix=1
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notifications/**
+              filters:
+                - StripPrefix=1
+
+            # Документация сервисов для общего Swagger UI: /api-docs/<сервис> -> /v3/api-docs сервиса.
+            # X-Forwarded-Prefix=/api — чтобы в Swagger адрес был http://localhost:8080/api
+            # и кнопка Try it out шла через gateway (/api/students -> /students)
+            - id: student-service-docs
+              uri: lb://student-service
+              predicates:
+                - Path=/api-docs/student-service
+              filters:
+                - SetPath=/v3/api-docs
+                - AddRequestHeader=X-Forwarded-Prefix, /api
+            - id: course-service-docs
+              uri: lb://course-service
+              predicates:
+                - Path=/api-docs/course-service
+              filters:
+                - SetPath=/v3/api-docs
+                - AddRequestHeader=X-Forwarded-Prefix, /api
+            - id: enrollment-service-docs
+              uri: lb://enrollment-service
+              predicates:
+                - Path=/api-docs/enrollment-service
+              filters:
+                - SetPath=/v3/api-docs
+                - AddRequestHeader=X-Forwarded-Prefix, /api
+            - id: certificate-service-docs
+              uri: lb://certificate-service
+              predicates:
+                - Path=/api-docs/certificate-service
+              filters:
+                - SetPath=/v3/api-docs
+                - AddRequestHeader=X-Forwarded-Prefix, /api
+            - id: auth-service-docs
+              uri: lb://auth-service
+              predicates:
+                - Path=/api-docs/auth-service
+              filters:
+                - SetPath=/v3/api-docs
+                - AddRequestHeader=X-Forwarded-Prefix, /api
+            - id: support-service-docs
+              uri: lb://support-service
+              predicates:
+                - Path=/api-docs/support-service
+              filters:
+                - SetPath=/v3/api-docs
+                - AddRequestHeader=X-Forwarded-Prefix, /api
+            - id: notification-service-docs
+              uri: lb://notification-service
+              predicates:
+                - Path=/api-docs/notification-service
+              filters:
+                - SetPath=/v3/api-docs
+                - AddRequestHeader=X-Forwarded-Prefix, /api
+
+# Общий Swagger UI на gateway: http://localhost:8080/swagger-ui.html, сервис выбирается в списке сверху
+springdoc:
+  swagger-ui:
+    urls:
+      - name: student-service
+        url: /api-docs/student-service
+      - name: course-service
+        url: /api-docs/course-service
+      - name: enrollment-service
+        url: /api-docs/enrollment-service
+      - name: certificate-service
+        url: /api-docs/certificate-service
+      - name: auth-service
+        url: /api-docs/auth-service
+      - name: support-service
+        url: /api-docs/support-service
+      - name: notification-service
+        url: /api-docs/notification-service
+
+# /actuator/gateway/routes — посмотреть, какие маршруты gateway получил
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,gateway
+  endpoint:
+    gateway:
+      access: read-only

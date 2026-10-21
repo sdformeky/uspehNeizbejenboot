@@ -1,0 +1,5 @@
+# Настройки только для course-service, общие — в application.yml
+info:
+  app:
+    name: course-service
+    description: Каталог курсов и учебные материалы

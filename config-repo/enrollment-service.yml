@@ -1,0 +1,43 @@
+# Настройки только для enrollment-service, общие — в application.yml
+info:
+  app:
+    name: enrollment-service
+    description: Записи на курсы, прохождение и оплата
+
+# Circuit Breaker на Feign-вызовах в student-, course- и certificate-service
+spring:
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+
+# Пороги предохранителя (Resilience4j), общие для всех Feign-клиентов сервиса
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10                # смотрим на последние 10 вызовов
+        minimum-number-of-calls: 5             # раньше 5 вызовов процент не считаем
+        failure-rate-threshold: 50             # >= 50% ошибок -> OPEN
+        wait-duration-in-open-state: 15s       # столько ждём в OPEN, потом HALF_OPEN
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        # «не найдено» — это ответ сервиса, а не его отказ: в процент ошибок не считаем
+        ignore-exceptions:
+          - org.example.enrollmentservice.exception.ResourceNotFoundException
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s                   # по умолчанию 1s — первый вызов после старта не успевает
+
+# /actuator/circuitbreakers — состояние предохранителей (CLOSED / OPEN / HALF_OPEN)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,circuitbreakers
+  health:
+    circuitbreakers:
+      enabled: true

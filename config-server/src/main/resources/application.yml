@@ -10,10 +10,19 @@ spring:
     config:
       server:
         native:
-          search-locations: classpath:/config
+          # папка config-repo в корне проекта; ../ — если запускать из папки модуля
+          search-locations: file:./config-repo/,file:../config-repo/
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+# config-server свои настройки из config-repo не берёт, поэтому формат логов — тот же, что в config-repo/application.yml
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${spring.application.name}] [%thread] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${spring.application.name}] [%thread] %logger{36} - %msg%n"
+  file:
+    name: logs/${spring.application.name}.log

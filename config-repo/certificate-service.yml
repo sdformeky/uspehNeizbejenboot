@@ -1,0 +1,5 @@
+# Настройки только для certificate-service, общие — в application.yml
+info:
+  app:
+    name: certificate-service
+    description: Выдача и проверка сертификатов
