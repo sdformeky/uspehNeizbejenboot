@@ -1,0 +1,50 @@
+package org.example.enrollmentservice.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.enrollmentservice.client.CertificateClient;
+import org.example.enrollmentservice.client.CourseClient;
+import org.example.enrollmentservice.client.StudentClient;
+import org.example.enrollmentservice.exception.ConflictException;
+import org.example.enrollmentservice.model.Enrollment;
+import org.example.enrollmentservice.repository.EnrollmentRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class EnrollmentService {
+
+    private final StudentClient studentClient;
+    private final CourseClient courseClient;
+    private final CertificateClient certificateClient; 
+    private final EnrollmentRepository enrollmentRepository;
+
+    @Transactional
+    public Enrollment createEnrollment(Long studentId, Long courseId) {
+        // 1. Валидация в соседних сервисах
+        studentClient.getStudentById(studentId);
+        courseClient.getCourseById(courseId);
+
+        if (enrollmentRepository.existsByStudentIdAndCourseId(studentId, courseId)) {
+            throw new ConflictException("Студент " + studentId + " уже записан на курс " + courseId);
+        }
+
+        // 2. Создание записи в БД
+        Enrollment enrollment = new Enrollment();
+        enrollment.setStudentId(studentId);
+        enrollment.setCourseId(courseId);
+        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
+        log.info("Студент {} записан на курс {}, запись {}", studentId, courseId, savedEnrollment.getId());
+
+        // 3. Вызов доп. сервиса после основного действия
+        try {
+            certificateClient.issueCertificate(savedEnrollment.getId());
+        } catch (Exception e) {
+            log.error("Не удалось выпустить сертификат для записи ID {}: {}", savedEnrollment.getId(), e.getMessage());
+        }
+
+        return savedEnrollment;
+    }
+}
