@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/certificates")
+@RequestMapping("/certificates")
 @Tag(name = "Certificate Controller", description = "Управление сертификатами")
 public class CertificateController {
 
