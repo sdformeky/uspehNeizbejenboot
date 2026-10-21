@@ -304,6 +304,62 @@ function visibleCourses() {
     return isAdmin() ? courses : courses.filter(function (c) { return c.status === 'PUBLISHED'; });
 }
 
+const COVER_ICONS = {
+    code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>',
+    db: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+    design: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.5-.9 1.5-1.6 0-1.4-1.2-1.4-1.2-2.6 0-.9.8-1.6 1.8-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg>',
+    other: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2zm0 0A2 2 0 0 0 6 22h14"/></svg>'
+};
+
+// Обложка курса по категории: цвет и иконка
+function coverKind(category) {
+    const name = (category || '').toLowerCase();
+    if (name.includes('программ')) return 'code';
+    if (name.includes('баз')) return 'db';
+    if (name.includes('дизайн')) return 'design';
+    return 'other';
+}
+
+function animateNumber(el, target) {
+    const start = performance.now();
+    const step = function (now) {
+        const t = Math.min(1, (now - start) / 1100);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - t, 3)));
+        if (t < 1) {
+            requestAnimationFrame(step);
+        }
+    };
+    requestAnimationFrame(step);
+}
+
+function launchConfetti() {
+    const colors = ['#ffd23f', '#2e9c76', '#ff6b6b', '#4dabf7', '#ffffff'];
+    const x = window.innerWidth / 2, y = window.innerHeight / 3;
+    for (let i = 0; i < 70; i++) {
+        const piece = document.createElement('i');
+        piece.className = 'confetti';
+        piece.style.left = x + 'px';
+        piece.style.top = y + 'px';
+        piece.style.background = colors[i % colors.length];
+        piece.style.setProperty('--dx', (Math.random() * 700 - 350) + 'px');
+        piece.style.setProperty('--dy', (Math.random() * 400 + 120) + 'px');
+        piece.style.setProperty('--rot', (Math.random() * 900) + 'deg');
+        piece.style.animationDelay = (Math.random() * 0.2) + 's';
+        document.body.appendChild(piece);
+        setTimeout(function () { piece.remove(); }, 2000);
+    }
+}
+
+function toggleTheme() {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try {
+        localStorage.setItem('theme', next);
+    } catch (e) {
+        // без хранилища тема просто не запомнится
+    }
+}
+
 function renderHeroStats() {
     const published = courses.filter(function (c) { return c.status === 'PUBLISHED'; });
     const categories = new Set(published.map(function (c) { return c.categoryName; }).filter(Boolean));
@@ -311,8 +367,11 @@ function renderHeroStats() {
     const free = published.filter(function (c) { return Number(c.price) === 0; }).length;
     const stats = [[published.length, 'курсов'], [categories.size, 'направления'], [instructors.size, 'преподавателя'], [free, 'бесплатно']];
     document.getElementById('hero-stats').innerHTML = stats.map(function (st) {
-        return '<div class="stat"><b>' + st[0] + '</b><span>' + st[1] + '</span></div>';
+        return '<div class="stat"><b data-count="' + st[0] + '">0</b><span>' + st[1] + '</span></div>';
     }).join('');
+    for (const el of document.querySelectorAll('#hero-stats [data-count]')) {
+        animateNumber(el, Number(el.dataset.count));
+    }
 }
 
 function fillCategoryFilter() {
@@ -343,8 +402,9 @@ function renderCourses() {
         const price = Number(c.price) === 0 ? 'Бесплатно' : Number(c.price).toLocaleString('ru-RU') + ' ₽';
         const draft = c.status !== 'PUBLISHED';
         html +=
-            '<div class="card course' + (draft ? ' draft' : '') + '">' +
-            '  <div class="course-top"><span class="tag category">' + esc(c.categoryName || 'Без категории') + '</span>' +
+            '<div class="card course reveal' + (draft ? ' draft' : '') + '">' +
+            '  <div class="cover cover-' + coverKind(c.categoryName) + '">' + COVER_ICONS[coverKind(c.categoryName)] +
+            esc(c.categoryName || 'Без категории') +
             (draft ? '<span class="badge red">' + (c.status === 'DRAFT' ? 'Черновик' : 'В архиве') + '</span>' : '') + '</div>' +
             '  <h2><a href="#course/' + c.id + '">' + esc(c.title) + '</a></h2>' +
             '  <div class="meta">' + esc(c.instructorName || 'Преподаватель не назначен') +
@@ -364,6 +424,9 @@ function renderCourses() {
     list.innerHTML = html || '<p class="hint">' + (visibleCourses().length === 0
         ? 'Курсов пока нет.'
         : 'Ничего не нашлось — попробуйте изменить поиск или фильтры.') + '</p>';
+    list.querySelectorAll('.course.reveal').forEach(function (card, i) {
+        setTimeout(function () { card.classList.add('in'); }, 60 + 80 * i);
+    });
 }
 
 function skeletonCards(count) {
@@ -491,6 +554,7 @@ async function completeLesson(lessonId) {
         }
         renderProgram();
         if (myEnrollment.status === 'COMPLETED') {
+            launchConfetti();
             showMessage('Курс пройден! Сертификат выпущен — он в разделе «Мои курсы».');
             updateBell();
         }
@@ -1016,6 +1080,7 @@ document.getElementById('verify-form').addEventListener('submit', checkCertifica
 document.getElementById('post-form').addEventListener('submit', addPost);
 document.getElementById('review-form').addEventListener('submit', addReview);
 document.getElementById('course-enroll').addEventListener('click', function () { enroll(coursePage.course.id); });
+document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 document.getElementById('course-search').addEventListener('input', renderCourses);
 document.getElementById('course-category').addEventListener('change', renderCourses);
 document.getElementById('course-free').addEventListener('change', renderCourses);
