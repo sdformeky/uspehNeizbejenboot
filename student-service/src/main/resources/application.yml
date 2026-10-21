@@ -6,7 +6,6 @@ spring:
     name: student-service
   config:
     import: optional:configserver:http://localhost:8888
-  # тестовые данные из data.sql — после того, как Hibernate создаст таблицы
   sql:
     init:
       mode: always
