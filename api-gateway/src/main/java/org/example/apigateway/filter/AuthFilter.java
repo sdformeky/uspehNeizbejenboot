@@ -112,6 +112,10 @@ public class AuthFilter implements GlobalFilter, Ordered {
         if (method.equals("POST") && path.matches("/api/courses/\\d+/posts")) {
             return INSTRUCTOR;
         }
+        // создавать, менять и удалять курсы — только администратор; отзыв оставляет любой вошедший
+        if (path.startsWith("/api/courses") && !method.equals("GET") && !path.matches("/api/courses/\\d+/reviews")) {
+            return ADMIN;
+        }
         // каталог, страница курса, проверка сертификата и FAQ открыты всем
         if (method.equals("GET") && (path.startsWith("/api/courses") || path.startsWith("/api/certificates")
                 || path.equals("/api/support/faq"))) {
