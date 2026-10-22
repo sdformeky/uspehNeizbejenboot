@@ -250,9 +250,9 @@ async function loadMyStudent() {
 
 // ===================== страницы =====================
 
-const PAGES = ['courses', 'course', 'my', 'support', 'notifications', 'students', 'verify', 'login'];
+const PAGES = ['courses', 'course', 'lesson', 'my', 'support', 'notifications', 'students', 'verify', 'login'];
 
-// Адрес страницы — после #: #courses, #my, #course/2 (страница курса с id 2)
+// Адрес страницы — после #: #courses, #my, #course/2 (страница курса с id 2), #lesson/5 (урок с id 5)
 function showPage() {
     const parts = location.hash.replace('#', '').split('/');
     let name = parts[0];
@@ -263,7 +263,7 @@ function showPage() {
         document.getElementById('page-' + page).classList.toggle('hidden', page !== name);
     }
     for (const link of document.querySelectorAll('.nav a')) {
-        const active = link.dataset.page === name || (name === 'course' && link.dataset.page === 'courses');
+        const active = link.dataset.page === name || ((name === 'course' || name === 'lesson') && link.dataset.page === 'courses');
         link.classList.toggle('active', active);
     }
 
@@ -271,6 +271,8 @@ function showPage() {
         loadCourses();
     } else if (name === 'course') {
         loadCoursePage(Number(parts[1]));
+    } else if (name === 'lesson') {
+        loadLessonPage(Number(parts[1]));
     } else if (name === 'my') {
         loadMy();
     } else if (name === 'support') {
@@ -471,7 +473,7 @@ async function enroll(courseId) {
         }
         showMessage('Вы записаны на курс «' + title + '». Отмечайте уроки на странице курса — после последнего выдадим сертификат.');
         updateBell();
-        if (coursePage && coursePage.course.id === courseId) {
+        if ((coursePage && coursePage.course.id === courseId) || (currentLesson && currentLesson.courseId === courseId)) {
             await loadMyProgress(courseId);
         }
     } catch (e) {
@@ -543,7 +545,16 @@ async function loadMyProgress(courseId) {
         myEnrollment = null;
         completedLessons = [];
     }
-    renderProgram();
+    renderProgress();
+}
+
+// Прогресс показывает та страница, на которой сейчас пользователь: курс или урок
+function renderProgress() {
+    if (location.hash.startsWith('#lesson/')) {
+        renderLessonActions();
+    } else if (coursePage) {
+        renderProgram();
+    }
 }
 
 async function completeLesson(lessonId) {
@@ -552,7 +563,7 @@ async function completeLesson(lessonId) {
         if (!completedLessons.includes(lessonId)) {
             completedLessons.push(lessonId);
         }
-        renderProgram();
+        renderProgress();
         if (myEnrollment.status === 'COMPLETED') {
             launchConfetti();
             showMessage('Курс пройден! Сертификат выпущен — он в разделе «Мои курсы».');
@@ -596,13 +607,180 @@ function renderProgram() {
                         : '');
             }
             lessons +=
-                '<div class="lesson">' + (l.hasVideo ? '▶ ' : '📄 ') + esc(l.title) +
+                '<div class="lesson"><a class="lesson-link" href="#lesson/' + l.id + '">' +
+                (l.hasVideo ? '▶ ' : '📄 ') + esc(l.title) + '</a>' +
                 '<span class="lesson-side">' + (l.durationMin ? l.durationMin + ' мин' : '') + action + '</span></div>';
         }
         html += '<details' + (m.position === 1 || myEnrollment ? ' open' : '') + '><summary>Модуль ' + m.position + '. ' +
             esc(m.title) + '</summary>' + lessons + '</details>';
     }
     document.getElementById('course-program').innerHTML = html;
+}
+
+// ----- Урок (course-service): текст в Markdown, навигация, отметка «Пройден» -----
+
+let currentLesson = null;
+
+async function loadLessonPage(id) {
+    currentLesson = null;
+    myEnrollment = null;
+    completedLessons = [];
+    document.getElementById('lesson-title').innerHTML = '<span class="spinner"></span>Загрузка…';
+    for (const block of ['lesson-meta', 'lesson-info', 'lesson-actions']) {
+        document.getElementById(block).textContent = '';
+    }
+    document.getElementById('lesson-content').innerHTML = loader('Загружаем урок…');
+    try {
+        currentLesson = await request('GET', '/courses/lessons/' + id);
+    } catch (e) {
+        document.getElementById('lesson-title').textContent = 'Урок не найден';
+        document.getElementById('lesson-content').textContent = '';
+        showMessage(e.message, true);
+        return;
+    }
+    const l = currentLesson;
+    document.getElementById('lesson-back').href = '#course/' + l.courseId;
+    document.getElementById('lesson-back').textContent = '← ' + l.courseTitle;
+    document.getElementById('lesson-meta').textContent =
+        'Модуль ' + l.modulePosition + '. ' + l.moduleTitle + ' · Урок ' + l.number + ' из ' + l.total;
+    document.getElementById('lesson-title').textContent = l.title;
+    document.getElementById('lesson-info').textContent =
+        (l.hasVideo ? '▶ Видеоурок' : '📄 Текстовый урок') + (l.durationMin ? ' · ' + l.durationMin + ' мин' : '');
+    document.getElementById('lesson-content').innerHTML = l.content
+        ? renderMarkdown(l.content)
+        : '<p class="hint">Текст урока появится позже.</p>';
+    setLessonLink('lesson-prev', l.prevLessonId);
+    setLessonLink('lesson-next', l.nextLessonId);
+    window.scrollTo(0, 0);
+    renderLessonActions();
+    loadMyProgress(l.courseId);
+}
+
+function setLessonLink(elementId, lessonId) {
+    const link = document.getElementById(elementId);
+    link.classList.toggle('invisible', !lessonId);
+    link.href = lessonId ? '#lesson/' + lessonId : '#';
+}
+
+function renderLessonActions() {
+    const box = document.getElementById('lesson-actions');
+    if (!currentLesson) {
+        return;
+    }
+    const id = currentLesson.id;
+    if (!currentUser) {
+        box.innerHTML = '<p class="hint"><a href="#login">Войдите</a> и запишитесь на курс, чтобы отмечать уроки и получить сертификат.</p>';
+    } else if (!myEnrollment) {
+        box.innerHTML = '<p class="hint">Вы не записаны на этот курс — уроки можно читать, но прогресс не сохранится.</p>' +
+            '<button onclick="enroll(' + currentLesson.courseId + ')">Записаться на курс</button>';
+    } else if (completedLessons.includes(id)) {
+        box.innerHTML = '<span class="badge green">✓ Урок пройден</span>' + lessonProgressBar();
+    } else if (myEnrollment.status === 'ACTIVE') {
+        box.innerHTML = '<button onclick="completeLesson(' + id + ')">✓ Я прошёл урок</button>' + lessonProgressBar();
+    } else {
+        box.innerHTML = lessonProgressBar();
+    }
+}
+
+function lessonProgressBar() {
+    return '<div class="progress"><div class="progress-bar" style="width:' + myEnrollment.progress + '%"></div></div>' +
+        '<p class="hint">' + (myEnrollment.status === 'COMPLETED'
+            ? 'Курс пройден — сертификат в разделе <a href="#my">«Мои курсы»</a>.'
+            : 'Прогресс по курсу: ' + myEnrollment.progress + '%') + '</p>';
+}
+
+// Небольшой Markdown: заголовки, абзацы, списки, цитаты, блоки кода, `код` и **жирный**.
+// Текст сначала экранируется, поэтому HTML из урока не выполняется
+function renderMarkdown(md) {
+    const lines = md.replace(/\r/g, '').split('\n');
+    let html = '';
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+        if (line.startsWith('```')) {
+            const lang = line.slice(3).trim();
+            const code = [];
+            i++;
+            while (i < lines.length && !lines[i].startsWith('```')) {
+                code.push(lines[i]);
+                i++;
+            }
+            i++;
+            const text = code.join('\n');
+            html += '<pre class="code"><code>' + (lang === 'java' ? highlightJava(text) : esc(text)) + '</code></pre>';
+        } else if (/^#{2,3} /.test(line)) {
+            const level = line.startsWith('### ') ? 3 : 2;
+            html += '<h' + level + '>' + inlineMarkdown(line.slice(level + 1)) + '</h' + level + '>';
+            i++;
+        } else if (/^(- |\d+\. )/.test(line)) {
+            const ordered = /^\d+\. /.test(line);
+            let items = '';
+            while (i < lines.length && (ordered ? /^\d+\. / : /^- /).test(lines[i])) {
+                items += '<li>' + inlineMarkdown(lines[i].replace(/^(- |\d+\. )/, '')) + '</li>';
+                i++;
+            }
+            html += ordered ? '<ol>' + items + '</ol>' : '<ul>' + items + '</ul>';
+        } else if (line.startsWith('> ')) {
+            const quote = [];
+            while (i < lines.length && lines[i].startsWith('> ')) {
+                quote.push(lines[i].slice(2));
+                i++;
+            }
+            html += '<blockquote>' + inlineMarkdown(quote.join(' ')) + '</blockquote>';
+        } else if (line.trim() === '') {
+            i++;
+        } else {
+            const paragraph = [];
+            while (i < lines.length && lines[i].trim() !== '' && !/^(```|#{2,3} |- |\d+\. |> )/.test(lines[i])) {
+                paragraph.push(lines[i]);
+                i++;
+            }
+            html += '<p>' + inlineMarkdown(paragraph.join(' ')) + '</p>';
+        }
+    }
+    return html;
+}
+
+function inlineMarkdown(text) {
+    return text.split(/(`[^`]+`)/).map(function (part) {
+        if (part.startsWith('`') && part.endsWith('`') && part.length > 1) {
+            return '<code>' + esc(part.slice(1, -1)) + '</code>';
+        }
+        return esc(part).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    }).join('');
+}
+
+const JAVA_KEYWORDS = new Set(('public private protected class interface record enum extends implements static final void ' +
+    'new return if else switch case default for while do break continue try catch finally throw throws this super ' +
+    'abstract var int long double boolean char byte short float true false null import package').split(' '));
+
+// Подсветка Java: строки, комментарии, аннотации, числа, ключевые слова, типы
+function highlightJava(code) {
+    const token = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\/\/[^\n]*)|(@[A-Za-z]+)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)/g;
+    let html = '';
+    let last = 0;
+    let m;
+    while ((m = token.exec(code)) !== null) {
+        html += esc(code.slice(last, m.index));
+        const text = esc(m[0]);
+        if (m[1]) {
+            html += '<span class="tok-str">' + text + '</span>';
+        } else if (m[2]) {
+            html += '<span class="tok-com">' + text + '</span>';
+        } else if (m[3]) {
+            html += '<span class="tok-ann">' + text + '</span>';
+        } else if (m[4]) {
+            html += '<span class="tok-num">' + text + '</span>';
+        } else if (JAVA_KEYWORDS.has(m[5])) {
+            html += '<span class="tok-kw">' + text + '</span>';
+        } else if (/^[A-Z]/.test(m[5])) {
+            html += '<span class="tok-type">' + text + '</span>';
+        } else {
+            html += text;
+        }
+        last = token.lastIndex;
+    }
+    return html + esc(code.slice(last));
 }
 
 function renderWebinars() {

@@ -14,6 +14,7 @@ import org.example.courseservice.dto.CoursePageDto;
 import org.example.courseservice.dto.PostRequest;
 import org.example.courseservice.dto.ReviewRequest;
 import org.example.courseservice.dto.CourseRequest;
+import org.example.courseservice.dto.LessonViewDto;
 import org.example.courseservice.service.CoursePageService;
 import org.example.courseservice.service.CourseService;
 import org.springframework.http.HttpStatus;
@@ -56,6 +57,17 @@ public class CourseController {
     })
     public CourseDto getById(@Parameter(description = "id курса", example = "1") @PathVariable Long id) {
         return courseService.findById(id);
+    }
+
+    @GetMapping("/lessons/{lessonId}")
+    @Operation(summary = "Урок целиком", description = "Текст урока (Markdown), модуль и id соседних уроков для навигации. Открыт всем, как каталог")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Урок найден"),
+            @ApiResponse(responseCode = "400", description = "id не число", content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Урок не найден", content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    public LessonViewDto getLesson(@Parameter(description = "id урока", example = "1") @PathVariable Long lessonId) {
+        return courseService.findLesson(lessonId);
     }
 
     @GetMapping("/{id}/lessons/ids")

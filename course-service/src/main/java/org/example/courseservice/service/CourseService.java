@@ -4,12 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.courseservice.dto.CourseDto;
 import org.example.courseservice.dto.CourseRequest;
+import org.example.courseservice.dto.LessonViewDto;
 import org.example.courseservice.exception.ConflictException;
 import org.example.courseservice.exception.NotFoundException;
 import org.example.courseservice.model.Category;
 import org.example.courseservice.model.Course;
+import org.example.courseservice.model.CourseModule;
 import org.example.courseservice.model.CourseStatus;
 import org.example.courseservice.model.Instructor;
+import org.example.courseservice.model.Lesson;
 import org.example.courseservice.model.Tag;
 import org.example.courseservice.repository.CategoryRepository;
 import org.example.courseservice.repository.CourseModuleRepository;
@@ -50,6 +53,30 @@ public class CourseService {
 
     public CourseDto findById(Long id) {
         return CourseDto.from(getCourse(id));
+    }
+
+    public LessonViewDto findLesson(Long lessonId) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new NotFoundException("Урок с id " + lessonId + " не найден"));
+        CourseModule module = lesson.getModule();
+        Course course = module.getCourse();
+        List<Long> ids = lessonRepository.findIdsByCourseId(course.getId());
+        int index = ids.indexOf(lessonId);
+        return new LessonViewDto(
+                lesson.getId(),
+                course.getId(),
+                course.getTitle(),
+                module.getPosition(),
+                module.getTitle(),
+                index + 1,
+                ids.size(),
+                lesson.getTitle(),
+                lesson.getContent(),
+                lesson.getDurationMin(),
+                lesson.getVideoUrl() != null,
+                index > 0 ? ids.get(index - 1) : null,
+                index < ids.size() - 1 ? ids.get(index + 1) : null
+        );
     }
 
     public List<Long> findLessonIds(Long id) {

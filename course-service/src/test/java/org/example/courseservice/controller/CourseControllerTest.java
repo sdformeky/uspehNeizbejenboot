@@ -2,6 +2,7 @@ package org.example.courseservice.controller;
 
 import org.example.courseservice.dto.CourseDto;
 import org.example.courseservice.dto.CourseRequest;
+import org.example.courseservice.dto.LessonViewDto;
 import org.example.courseservice.exception.ConflictException;
 import org.example.courseservice.exception.NotFoundException;
 import org.example.courseservice.model.CourseStatus;
@@ -103,6 +104,28 @@ class CourseControllerTest {
         mockMvc.perform(get("/courses/abc"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Некорректный запрос"));
+    }
+
+    @Test
+    void lessonReturnsContentAndNavigation() throws Exception {
+        when(courseService.findLesson(2L)).thenReturn(new LessonViewDto(2L, 3L, "Java с нуля", 1, "Первые шаги", 2, 8,
+                "Переменные и типы данных", "## Типы", 40, true, 1L, 3L));
+
+        mockMvc.perform(get("/courses/lessons/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Переменные и типы данных"))
+                .andExpect(jsonPath("$.prevLessonId").value(1))
+                .andExpect(jsonPath("$.nextLessonId").value(3))
+                .andExpect(jsonPath("$.total").value(8));
+    }
+
+    @Test
+    void lessonReturns404WhenMissing() throws Exception {
+        when(courseService.findLesson(99L)).thenThrow(new NotFoundException("Урок с id 99 не найден"));
+
+        mockMvc.perform(get("/courses/lessons/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Урок с id 99 не найден"));
     }
 
     @Test

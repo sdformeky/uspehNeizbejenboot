@@ -228,6 +228,64 @@ h3 { font-size: 15px; margin: 20px 0 8px; }
 .lesson span { color: var(--muted); font-size: 13px; }
 .lesson-side { display: flex; align-items: center; gap: 10px; }
 .lesson-side .badge { color: var(--tint-text); font-size: 12px; }
+.lesson-link { color: var(--text); text-decoration: none; }
+.lesson-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* ---------- страница урока ---------- */
+.lesson-page { max-width: 820px; margin: 0 auto; padding: 28px 36px; }
+.lesson-page h1 { margin: 6px 0 4px; }
+.lesson-text { line-height: 1.7; font-size: 16px; margin-top: 18px; }
+.lesson-text h2 { font-size: 20px; margin: 28px 0 8px; }
+.lesson-text h3 { font-size: 17px; margin: 22px 0 6px; }
+.lesson-text p { margin: 10px 0; }
+.lesson-text ul, .lesson-text ol { padding-left: 24px; }
+.lesson-text li { margin: 4px 0; }
+.lesson-text code {
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 14px;
+    background: var(--ok-bg);
+    color: var(--tint-text);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+.lesson-text blockquote {
+    margin: 16px 0;
+    padding: 10px 16px;
+    border-left: 4px solid var(--accent);
+    background: var(--ok-bg);
+    border-radius: 0 8px 8px 0;
+}
+.lesson-text pre.code {
+    background: #1e2430;
+    color: #e6e9ef;
+    padding: 14px 18px;
+    border-radius: 10px;
+    overflow-x: auto;
+    line-height: 1.5;
+}
+.lesson-text pre.code code { background: none; color: inherit; padding: 0; font-size: 14px; }
+.tok-kw { color: #c792ea; }
+.tok-str { color: #c3e88d; }
+.tok-com { color: #7f8a9e; font-style: italic; }
+.tok-ann { color: #ffcb6b; }
+.tok-num { color: #f78c6c; }
+.tok-type { color: #82aaff; }
+.lesson-actions { margin: 28px 0 8px; padding-top: 18px; border-top: 1px solid var(--border); }
+.lesson-actions .progress { margin-top: 14px; }
+.lesson-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+.nav-button {
+    display: inline-block;
+    padding: 9px 16px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+}
+.nav-button:hover { background: var(--accent-dark); }
+.nav-button.secondary { background: var(--ok-bg); color: var(--tint-text); }
+.invisible { visibility: hidden; }
+@media (max-width: 600px) { .lesson-page { padding: 18px 16px; } }
 .progress { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
 .progress-bar { height: 100%; background: var(--accent); transition: width .3s; }
 .post { border-bottom: 1px solid var(--border); padding: 12px 0; }
